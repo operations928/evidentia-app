@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evidentia Security Hub</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #003366; /* Evidentia Dark Blue */
+            --accent: #C5A059;  /* Gold/Badge Color */
+            --bg: #f0f2f5;
+            --text: #333;
+        }
+
+        body { font-family: 'Inter', sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+
+        /* Navbar */
+        .navbar {
+            background: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .logo { font-size: 1.5rem; font-weight: 800; letter-spacing: 1px; }
+        .logo span { color: var(--accent); }
+        .user-info { font-size: 0.9rem; opacity: 0.9; }
+
+        /* Dashboard Grid */
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* App Cards */
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s, border 0.2s;
+            cursor: pointer;
+            border-top: 5px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-top: 5px solid var(--accent);
+        }
+
+        .card h3 { margin: 10px 0 5px; color: var(--primary); }
+        .card p { font-size: 0.9rem; color: #666; }
+        .icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+        /* Role Badges */
+        .admin-section { border: 2px dashed var(--primary); display: none; } /* Hidden by default */
+
+        /* AI Chat Widget */
+        .chat-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+        .chat-header { background: var(--primary); color: white; padding: 10px 15px; font-weight: 600; display: flex; justify-content: space-between; }
+        .chat-body { height: 250px; overflow-y: auto; padding: 15px; background: #f9f9f9; font-size: 0.9rem; }
+        .chat-input { display: flex; border-top: 1px solid #ddd; }
+        .chat-input input { flex: 1; padding: 10px; border: none; outline: none; }
+        .chat-input button { background: var(--accent); border: none; padding: 0 15px; cursor: pointer; font-weight: bold; }
+        
+        .msg-user { text-align: right; color: var(--primary); margin: 5px 0; }
+        .msg-ai { text-align: left; color: #444; background: #e0e0e0; padding: 5px 10px; border-radius: 8px; margin: 5px 0; width: fit-content; }
+
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="logo">EVIDENTIA <span>HUB</span></div>
+        <div class="user-info" id="user-status">Guest - Please Login</div>
+    </nav>
+
+    <div class="container">
+        <a href="https://mail.google.com" target="_blank" class="card">
+            <div class="icon">📧</div>
+            <h3>Gmail</h3>
+            <p>Agency Email & Alerts</p>
+        </a>
+
+        <a href="https://connecteam.com" target="_blank" class="card">
+            <div class="icon">📢</div>
+            <h3>Connecteam Feed</h3>
+            <p>Schedules & Updates</p>
+        </a>
+
+        <a href="https://workforce.intuit.com/app/payroll/employee-portal" target="_blank" class="card">
+            <div class="icon">💵</div>
+            <h3>Pay Stubs</h3>
+            <p>QuickBooks Workforce</p>
+        </a>
+
+        <a href="https://zello.com/work/login" target="_blank" class="card">
+            <div class="icon">📻</div>
+            <h3>Zello Dispatch</h3>
+            <p>Push-to-Talk Console</p>
+        </a>
+
+        <div class="card" onclick="alert('Please launch DJI Fly app on your tablet.')">
+            <div class="icon">🚁</div>
+            <h3>DJI Fly / Nav Drone</h3>
+            <p>Launch from Tablet Home</p>
+        </div>
+
+        <a href="https://qbo.intuit.com" target="_blank" class="card admin-section" id="admin-card">
+            <div class="icon">🛡️</div>
+            <h3>Admin Portal</h3>
+            <p>Accounting & Super Admin Tools</p>
+        </a>
+    </div>
+
+    <div class="chat-widget">
+        <div class="chat-header">
+            <span>🤖 AI Assistant</span>
+            <span style="font-size: 0.8rem; opacity: 0.7;">Powered by Gemini</span>
+        </div>
+        <div class="chat-body" id="chat-box">
+            <div class="msg-ai">Hello Officer. How can I assist you today?</div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="chat-msg" placeholder="Type here..." onkeypress="handleEnter(event)">
+            <button onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        let supabase;
+
+        // 1. Fetch Config & Init Supabase
+        fetch('/api/config')
+            .then(res => res.json())
+            .then(config => {
+                supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseKey);
+                handleAuth();
+            });
+
+        // 2. Handle Login/Auth
+        async function handleAuth() {
+            const { data: { user } } = await supabase.auth.getUser();
+            
+            if (!user) {
+                const email = prompt("Evidentia Internal Login\nPlease enter your email:");
+                if(email) {
+                    // Send Magic Link (Passwordless)
+                    const { error } = await supabase.auth.signInWithOtp({ email });
+                    if(error) alert("Error: " + error.message);
+                    else alert("Check your email for the magic login link!");
+                }
+            } else {
+                document.getElementById('user-status').innerText = `Officer: ${user.email}`;
+                
+                // Simple Role Check (If email contains 'admin', show admin card)
+                if(user.email.includes('admin')) {
+                    document.getElementById('admin-card').style.display = 'flex';
+                }
+            }
+        }
+
+        // 3. AI Chat Logic
+        async function sendMessage() {
+            const input = document.getElementById('chat-msg');
+            const chatBox = document.getElementById('chat-box');
+            const msg = input.value;
+            if(!msg) return;
+
+            // Add User Message
+            chatBox.innerHTML += `<div class="msg-user">You: ${msg}</div>`;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Call Backend API
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ message: msg })
+            });
+            const data = await res.json();
+
+            // Add AI Response
+            chatBox.innerHTML += `<div class="msg-ai">${data.reply}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function handleEnter(e) {
+            if(e.key === 'Enter') sendMessage();
+        }
+    </script>
+</body>
+</html>
