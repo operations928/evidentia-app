@@ -1,207 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evidentia Hub</title>
-    <style>
-        :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --accent-hover: #2563eb; --red: #ef4444; --green: #10b981; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-        
-        /* Sidebar Navigation */
-        .sidebar { width: 260px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid #334155; }
-        .logo-area { padding: 25px; border-bottom: 1px solid #334155; }
-        .logo { font-size: 1.4rem; font-weight: bold; color: var(--accent); letter-spacing: 1px; }
-        
-        /* Nav Buttons */
-        .nav-menu { flex: 1; padding: 20px 10px; display: flex; flex-direction: column; gap: 5px; }
-        .nav-btn { 
-            background: transparent; border: none; color: #94a3b8; padding: 12px 15px; 
-            text-align: left; cursor: pointer; border-radius: 8px; font-size: 0.95rem; font-weight: 500;
-            display: flex; align-items: center; gap: 10px; transition: all 0.2s;
-        }
-        .nav-btn:hover { background: #334155; color: white; }
-        .nav-btn.active { background: var(--accent); color: white; }
-        .nav-icon { width: 20px; text-align: center; }
+const express = require('express');
+const path = require('path');
+const { GoogleGenAI } = require("@google/genai");
+require('dotenv').config();
 
-        /* Main Content Area */
-        .main { flex: 1; display: flex; flex-direction: column; position: relative; }
-        
-        /* Header */
-        .header { padding: 15px 25px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
-        .badge { background: #064e3b; color: #34d399; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-        /* TAB VIEWS */
-        .view-section { display: none; height: 100%; flex-direction: column; padding: 20px; box-sizing: border-box; }
-        .view-section.active-view { display: flex; }
+app.use(express.static('public'));
+app.use(express.json());
 
-        /* Dashboard Grid (Same as before) */
-        .grid { display: flex; flex: 1; gap: 20px; overflow: hidden; height: 100%; }
-        .left-col { flex: 3; display: flex; flex-direction: column; gap: 20px; overflow: hidden; }
-        .chat-panel { flex: 2; background: var(--panel); border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #334155; overflow: hidden; }
-        
-        /* Incident Table Styles */
-        .incident-panel { flex: 1; background: var(--panel); border-radius: 12px; padding: 20px; overflow-y: auto; border: 1px solid #334155; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; color: #94a3b8; font-size: 0.9rem; padding: 10px 0; border-bottom: 1px solid #475569; }
-        td { padding: 12px 0; border-bottom: 1px solid #334155; font-size: 0.95rem; }
+// 1. Config Endpoint
+app.get('/api/config', (req, res) => {
+    res.json({ status: "Online", mode: "Hub" });
+});
 
-        /* Chat Styles */
-        .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-        .msg { padding: 12px 16px; border-radius: 8px; max-width: 85%; font-size: 0.95rem; }
-        .msg.user { align-self: flex-end; background: var(--accent); color: white; }
-        .msg.ai { align-self: flex-start; background: #334155; }
-        .input-area { padding: 15px; background: var(--bg); display: flex; gap: 10px; border-top: 1px solid #334155; }
-        input { flex: 1; background: #334155; border: 1px solid #475569; padding: 12px; border-radius: 6px; color: white; }
-        
-        /* IFRAME CONTAINER (For External Apps) */
-        .iframe-container { flex: 1; background: white; border-radius: 8px; overflow: hidden; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; }
-        .iframe-fallback {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--panel); display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: -1;
-        }
+// 2. Chat Endpoint (Gemini 2.5 Flash)
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    </style>
-</head>
-<body>
+app.post('/api/chat', async (req, res) => {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash-exp", // Using the latest experimental Flash model
+            contents: `You are a security operations AI for Evidentia. Concise answers. User: ${req.body.message}`
+        });
+        const text = response.text; 
+        res.json({ reply: text });
+    } catch (error) {
+        console.error("AI Error:", error.message);
+        res.json({ reply: "⚠️ AI Offline: " + error.message });
+    }
+});
 
-    <div class="sidebar">
-        <div class="logo-area">
-            <div class="logo">🛡️ EVIDENTIA</div>
-            <div style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">HUB OS v1.2</div>
-        </div>
-        <div class="nav-menu">
-            <button class="nav-btn active" onclick="switchTab('dashboard')">
-                <span class="nav-icon">📊</span> Dashboard
-            </button>
-            <button class="nav-btn" onclick="switchTab('connecteam')">
-                <span class="nav-icon">📱</span> Connecteam
-            </button>
-            <button class="nav-btn" onclick="switchTab('dispatch')">
-                <span class="nav-icon">🚓</span> CAD Dispatch
-            </button>
-            <button class="nav-btn" onclick="switchTab('cameras')">
-                <span class="nav-icon">📹</span> CCTV Net
-            </button>
-        </div>
-        <div style="padding: 20px; border-top: 1px solid #334155;">
-             <div style="font-size:0.8rem; color:#94a3b8;">System Status</div>
-             <div style="color: var(--green); font-weight:bold;">● Online</div>
-        </div>
-    </div>
+// 3. Hub Data Endpoint (CLEARED)
+app.get('/api/incidents', (req, res) => {
+    // Returning an empty array to clear the mock data
+    res.json([]); 
+});
 
-    <div class="main">
-        <div class="header">
-            <h3 id="pageTitle" style="margin:0">Command Center</h3>
-            <div class="badge">● Secure Connection</div>
-        </div>
+// 4. Serve the Hub UI
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-        <div id="view-dashboard" class="view-section active-view">
-            <div class="grid">
-                <div class="left-col">
-                    <div class="incident-panel">
-                        <h3 style="margin-top:0">🚨 Live Incidents</h3>
-                        <table id="incidentTable">
-                            <tr><th>Type</th><th>Location</th><th>Status</th></tr>
-                            <tr><td colspan="3">Loading data...</td></tr>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="chat-panel">
-                    <div class="messages" id="messages">
-                        <div class="msg ai">Evidentia Assistant online.</div>
-                    </div>
-                    <div class="input-area">
-                        <input type="text" id="userInput" placeholder="Ask AI..." onkeypress="handleKey(event)">
-                        <button style="background:var(--accent); color:white; border:none; padding:0 20px; border-radius:6px; cursor:pointer;" onclick="sendMessage()">Send</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="view-connecteam" class="view-section">
-            <div class="iframe-container">
-                <iframe src="https://app.connecteam.com"></iframe>
-                 
-                 <div class="iframe-fallback">
-                    <h2>⚠️ Security Restriction</h2>
-                    <p style="color:#94a3b8; max-width:400px; text-align:center;">
-                        Connecteam does not allow itself to be opened inside other apps (iframe protection).
-                    </p>
-                    <a href="https://app.connecteam.com" target="_blank" style="margin-top:20px; background:var(--accent); color:white; padding:10px 20px; text-decoration:none; border-radius:6px;">
-                        Open in New Window
-                    </a>
-                 </div>
-            </div>
-        </div>
-
-        <div id="view-dispatch" class="view-section">
-            <div class="iframe-container">
-                <iframe src="https://www.wikipedia.org"></iframe>
-            </div>
-        </div>
-        
-        <div id="view-cameras" class="view-section">
-             <div style="display:flex; justify-content:center; align-items:center; height:100%; color:#94a3b8;">
-                Camera Feed Not Configured
-             </div>
-        </div>
-
-    </div>
-
-    <script>
-        // --- TAB LOGIC ---
-        function switchTab(tabName) {
-            // 1. Hide all views
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
-            // 2. Deactivate all buttons
-            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-            
-            // 3. Show selected view
-            document.getElementById(`view-${tabName}`).classList.add('active-view');
-            
-            // 4. Highlight button (simple loop match)
-            const btnText = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-            document.getElementById('pageTitle').innerText = tabName === 'dashboard' ? 'Command Center' : btnText;
-            
-            // Find the button that was clicked (hacky but works for this scale)
-            event.currentTarget.classList.add('active');
-        }
-
-        // --- DASHBOARD LOGIC (Same as before) ---
-        fetch('/api/incidents')
-            .then(res => res.json())
-            .then(data => {
-                const table = document.getElementById('incidentTable');
-                table.innerHTML = `<tr><th>Type</th><th>Location</th><th>Status</th></tr>`;
-                data.forEach(inc => {
-                    const color = inc.status === 'Critical' ? '#ef4444' : '#10b981';
-                    table.innerHTML += `<tr><td><b>${inc.type}</b></td><td>${inc.location}</td><td style="color:${color}">${inc.status}</td></tr>`;
-                });
-            });
-
-        async function sendMessage() {
-            const input = document.getElementById('userInput');
-            const text = input.value.trim();
-            if(!text) return;
-            addMsg(text, 'user');
-            input.value = '';
-            try {
-                const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: text}) });
-                const data = await res.json();
-                addMsg(data.reply, 'ai');
-            } catch(e) { addMsg("⚠️ Error connecting to AI.", 'ai'); }
-        }
-        function addMsg(text, type) {
-            const div = document.createElement('div');
-            div.className = `msg ${type}`;
-            div.textContent = text;
-            document.getElementById('messages').appendChild(div);
-        }
-        function handleKey(e) { if(e.key === 'Enter') sendMessage(); }
-    </script>
-</body>
-</html>
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`✅ Hub Active on port ${PORT}`);
+    });
+}
+module.exports = app;
