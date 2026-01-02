@@ -11,7 +11,7 @@
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
-        // Global Variables
+        // Global State
         let sb = null;
         let socket = null;
         let currentUser = null;
@@ -20,7 +20,7 @@
         let isDispatched = false; 
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // 1. Initialize System
+        // 1. Initialize Supabase
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
@@ -28,7 +28,7 @@
             sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         } catch (e) { console.error("Supabase Init Error:", e); }
 
-        // 2. Auth Functions (Defined Early)
+        // 2. Auth Functions
         function toggleAuth(mode) {
             document.getElementById('loginForm').style.display = mode==='login'?'block':'none';
             document.getElementById('signupForm').style.display = mode==='signup'?'block':'none';
@@ -51,7 +51,6 @@
 
         async function doLogout() {
             await sb.auth.signOut(); 
-            // Auth listener will handle UI switch
         }
 
         async function clockOut() {
@@ -182,7 +181,6 @@
 
         <div class="bottom-deck">
             <div class="radio-silo" style="background:#111; border-right:2px solid #333; display:flex; flex-direction:column; font-family:'Courier New', monospace;">
-    
                 <div style="background:#000; padding:15px; border-bottom:2px solid #444;">
                     <div style="background:#0f380f; color:#00ff00; padding:10px; border:2px inset #0a2a0a; border-radius:4px; margin-bottom:10px; text-shadow: 0 0 5px #00ff00;">
                         <div style="font-size:0.7rem; opacity:0.8;">CHANNEL</div>
@@ -285,11 +283,9 @@
 
         // --- CORE FUNCTIONS ---
         async function fetchProfile(uid, email) {
-            let { data: profile, error } = await sb.from('profiles').select('*').eq('id', uid).single();
+            let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
             
-            // Auto-create profile
             if (!profile) {
-                console.log("Creating new profile...");
                 await sb.from('profiles').insert([{ id: uid, email: email, full_name: "Officer", role: "Unassigned" }]);
                 const res = await sb.from('profiles').select('*').eq('id', uid).single();
                 profile = res.data;
@@ -322,10 +318,14 @@
         function setupSocketListeners() {
             socket.on('radio-playback', d => {
                 addLog(d.name, "Audio", true, d.audio);
-                if(d.audio && d.audio.length > 50) {
+                
+                // AUTO PLAY (Restored & Safe)
+                // Strict check: Must be a string, length > 50, and start with data:audio
+                if(d.audio && typeof d.audio === 'string' && d.audio.startsWith('data:audio')) {
                     playSound('ptt-on');
-                    // NO AUTO PLAY (Fixes audio error loop)
-                    // Users click play manually, or enable auto-play if interaction exists
+                    const snd = new Audio(d.audio);
+                    snd.onended = () => playSound('ptt-off');
+                    snd.play().catch(e => console.warn("Auto-play blocked"));
                 }
             });
             socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false));
@@ -351,7 +351,10 @@
                 btn.innerText = "✅ AUDIO ACTIVE";
                 btn.style.color = "#10b981";
                 btn.style.borderColor = "#10b981";
-            }).catch(e => console.log("Mic Denied"));
+            }).catch(e => {
+                alert("Microphone Access Denied. Check settings.");
+                console.error(e);
+            });
         }
 
         function playSound(type) {
@@ -370,18 +373,21 @@
             const d = document.createElement('div'); d.className = 'chat-msg';
             if(v) {
                 d.innerHTML = `<div><b>${n}</b> <span style="font-size:0.8em; color:#999;">${new Date().toLocaleTimeString()}</span></div>`;
-                // SAFE AUDIO PLAYER
-                if(s && s.length > 50) {
+                
+                // VALIDATE AUDIO
+                const isValidAudio = (s && typeof s === 'string' && s.startsWith('data:audio'));
+                
+                if(isValidAudio) {
                     const playBtn = document.createElement('button');
                     playBtn.innerText = "▶ PLAY";
-                    playBtn.style.cssText = "background:#333; border:1px solid #555; color:#0f0; margin-top:5px; cursor:pointer;";
+                    playBtn.style.cssText = "background:#333; border:1px solid #555; color:#0f0; margin-top:5px; cursor:pointer; padding:2px 8px; border-radius:4px;";
                     playBtn.onclick = () => {
                         const sound = new Audio(s);
-                        sound.play().catch(e => console.log("Play error", e));
+                        sound.play().catch(e => console.error("Play error", e));
                     };
                     d.appendChild(playBtn);
                 } else {
-                    d.innerHTML += " <i>(Audio Error)</i>";
+                    d.innerHTML += " <i style='color:#666;'>(Audio unavailable)</i>";
                 }
             } else {
                 d.innerHTML = `<b>${n}</b>: ${m}`;
