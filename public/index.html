@@ -13,7 +13,6 @@
         .logo-area { padding: 25px; border-bottom: 1px solid #334155; }
         .logo { font-size: 1.4rem; font-weight: bold; color: var(--accent); letter-spacing: 1px; }
         
-        /* Nav Buttons */
         .nav-menu { flex: 1; padding: 20px 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
         .nav-category { font-size: 0.75rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 15px; font-weight: bold; letter-spacing: 0.5px; }
         .nav-btn { 
@@ -23,16 +22,13 @@
         }
         .nav-btn:hover { background: #334155; color: white; }
         .nav-btn.active { background: var(--accent); color: white; }
-        .nav-icon { width: 20px; text-align: center; }
 
-        /* Main Content Area */
+        /* Main Content */
         .main { flex: 1; display: flex; flex-direction: column; position: relative; }
-        
-        /* Header */
         .header { padding: 15px 25px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
         .badge { background: #064e3b; color: #34d399; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
 
-        /* TAB VIEWS */
+        /* VIEWS */
         .view-section { display: none; height: 100%; flex-direction: column; padding: 20px; box-sizing: border-box; }
         .view-section.active-view { display: flex; }
 
@@ -41,236 +37,21 @@
         .left-col { flex: 3; display: flex; flex-direction: column; gap: 20px; overflow: hidden; }
         .chat-panel { flex: 2; background: var(--panel); border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #334155; overflow: hidden; }
         
-        /* Incident Table Styles */
+        /* Incident Table */
         .incident-panel { flex: 1; background: var(--panel); border-radius: 12px; padding: 20px; overflow-y: auto; border: 1px solid #334155; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { text-align: left; color: #94a3b8; font-size: 0.9rem; padding: 10px 0; border-bottom: 1px solid #475569; }
         td { padding: 12px 0; border-bottom: 1px solid #334155; font-size: 0.95rem; }
 
-        /* Chat Styles */
+        /* Chat UI */
         .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
         .msg { padding: 12px 16px; border-radius: 8px; max-width: 85%; font-size: 0.95rem; }
         .msg.user { align-self: flex-end; background: var(--accent); color: white; }
         .msg.ai { align-self: flex-start; background: #334155; }
         .input-area { padding: 15px; background: var(--bg); display: flex; gap: 10px; border-top: 1px solid #334155; }
         input { flex: 1; background: #334155; border: 1px solid #475569; padding: 12px; border-radius: 6px; color: white; }
-        
-        /* IFRAME & APP CONTAINER */
-        .iframe-container { flex: 1; background: white; border-radius: 8px; overflow: hidden; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; }
-        .iframe-fallback {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--panel); display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: -1;
-        }
 
-        /* Email Specific Layout */
-        .email-layout { display: flex; height: 100%; gap: 20px; }
-        .email-settings { width: 250px; background: var(--panel); padding: 20px; border-radius: 8px; border: 1px solid #334155; font-size: 0.9rem; }
-        .setting-group { margin-bottom: 20px; }
-        .setting-label { color: var(--accent); font-weight: bold; margin-bottom: 5px; display: block; }
-        .setting-val { color: #94a3b8; font-family: monospace; }
-
-        /* Stats in Sidebar */
-        .stat-box { padding: 15px; border-bottom: 1px solid #334155; }
-        .stat-label { font-size: 0.8rem; color: #94a3b8; }
-        .stat-value { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
-
-    </style>
-</head>
-<body>
-
-    <div class="sidebar">
-        <div class="logo-area">
-            <div class="logo">🛡️ EVIDENTIA</div>
-            <div style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">HUB OS v2.0</div>
-        </div>
-        
-        <div class="nav-menu">
-            <div class="nav-category">Main</div>
-            <button class="nav-btn active" onclick="switchTab('dashboard')">
-                <span class="nav-icon">📊</span> Dashboard
-            </button>
-            <button class="nav-btn" onclick="switchTab('email')">
-                <span class="nav-icon">📧</span> Mail System
-            </button>
-
-            <div class="nav-category">Operations</div>
-            <button class="nav-btn" onclick="switchTab('connecteam')">
-                <span class="nav-icon">📱</span> Connecteam
-            </button>
-            <button class="nav-btn" onclick="switchTab('navdrone')">
-                <span class="nav-icon">🚁</span> NavDrone
-            </button>
-            <button class="nav-btn" onclick="switchTab('zello')">
-                <span class="nav-icon">📻</span> Zello
-            </button>
-
-            <div class="nav-category">Admin</div>
-            <button class="nav-btn" onclick="switchTab('quickbooks')">
-                <span class="nav-icon">💰</span> QB Workforce
-            </button>
-        </div>
-
-        <div class="stat-box">
-             <div class="stat-label">System Status</div>
-             <div class="stat-value" style="color: var(--green)">Online</div>
-        </div>
-    </div>
-
-    <div class="main">
-        <div class="header">
-            <h3 id="pageTitle" style="margin:0">Command Center</h3>
-            <div class="badge">● Secure Connection</div>
-        </div>
-
-        <div id="view-dashboard" class="view-section active-view">
-            <div class="grid">
-                <div class="left-col">
-                    <div class="incident-panel">
-                        <h3 style="margin-top:0">🚨 Live Incidents</h3>
-                        <table id="incidentTable">
-                            <thead><tr><th>Type</th><th>Location</th><th>Status</th></tr></thead>
-                            <tbody id="incidentBody"><tr><td colspan="3">Waiting for data...</td></tr></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="chat-panel">
-                    <div class="messages" id="messages">
-                        <div class="msg ai">Evidentia Assistant online.</div>
-                    </div>
-                    <div class="input-area">
-                        <input type="text" id="userInput" placeholder="Ask AI..." onkeypress="handleKey(event)">
-                        <button style="background:var(--accent); color:white; border:none; padding:0 20px; border-radius:6px; cursor:pointer;" onclick="sendMessage()">Send</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="view-email" class="view-section">
-            <div class="email-layout">
-                <div class="iframe-container">
-                    <iframe src="https://mail.hostinger.com"></iframe>
-                    <div class="iframe-fallback">
-                        <h2>Webmail Login</h2>
-                        <a href="https://mail.hostinger.com" target="_blank" style="background:var(--accent); color:white; padding:10px 20px; text-decoration:none; border-radius:6px;">Open Hostinger Mail</a>
-                    </div>
-                </div>
-                <div class="email-settings">
-                    <h4 style="margin-top:0; border-bottom:1px solid #475569; padding-bottom:10px;">Server Protocols</h4>
-                    
-                    <div class="setting-group">
-                        <span class="setting-label">Incoming (IMAP)</span>
-                        <div class="setting-val">imap.hostinger.com</div>
-                        <div class="setting-val">Port: 993 (SSL)</div>
-                    </div>
-
-                    <div class="setting-group">
-                        <span class="setting-label">Incoming (POP3)</span>
-                        <div class="setting-val">pop.hostinger.com</div>
-                        <div class="setting-val">Port: 995 (SSL)</div>
-                    </div>
-
-                    <div class="setting-group">
-                        <span class="setting-label">Outgoing (SMTP)</span>
-                        <div class="setting-val">smtp.hostinger.com</div>
-                        <div class="setting-val">Port: 465 (SSL)</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="view-connecteam" class="view-section">
-            <div class="iframe-container">
-                 <iframe src="https://app.connecteam.com"></iframe>
-                 <div class="iframe-fallback">
-                    <h2>⚠️ External App</h2>
-                    <p style="color:#94a3b8;">Connecteam requires opening in a new window.</p>
-                    <a href="https://app.connecteam.com" target="_blank" style="background:var(--accent); color:white; padding:10px 20px; text-decoration:none; border-radius:6px;">Launch Connecteam</a>
-                 </div>
-            </div>
-        </div>
-
-        <div id="view-navdrone" class="view-section">
-            <div class="iframe-container">
-                 <iframe src="https://map.navdrone.ca"></iframe>
-                 <div class="iframe-fallback">
-                    <h2>NavDrone Portal</h2>
-                    <a href="https://map.navdrone.ca" target="_blank" style="background:var(--accent); color:white; padding:10px 20px; text-decoration:none; border-radius:6px;">Launch NavDrone</a>
-                 </div>
-            </div>
-        </div>
-
-        <div id="view-zello" class="view-section">
-            <div class="iframe-container">
-                 <iframe src="https://zello.com/login"></iframe>
-                 <div class="iframe-fallback">
-                    <h2>Zello Dispatch</h2>
-                    <a href="https://zello.com/login" target="_blank" style="background:var(--accent); color:white; padding:10px 20px; text-decoration:none; border-radius:6px;">Launch Zello</a>
-                 </div>
-            </div>
-        </div>
-
-        <div id="view-quickbooks" class="view-section">
-            <div class="iframe-container">
-                 <iframe src="https://workforce.intuit.com/app/payroll/employee-portal/login"></iframe>
-                 <div class="iframe-fallback">
-                    <h2>QuickBooks Workforce</h2>
-                    <p style="color:#94a3b8;">Intuit security requires a new window.</p>
-                    <a href="https://workforce.intuit.com/" target="_blank" style="background:var(--accent); color:white; padding:10px 20px; text-decoration:none; border-radius:6px;">Launch Workforce</a>
-                 </div>
-            </div>
-        </div>
-
-    </div>
-
-    <script>
-        // --- TAB LOGIC ---
-        function switchTab(tabName) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
-            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(`view-${tabName}`).classList.add('active-view');
-            
-            const btnText = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-            document.getElementById('pageTitle').innerText = tabName === 'dashboard' ? 'Command Center' : btnText;
-            event.currentTarget.classList.add('active');
-        }
-
-        // --- DASHBOARD LOGIC ---
-        fetch('/api/incidents')
-            .then(res => res.json())
-            .then(data => {
-                const tbody = document.getElementById('incidentBody');
-                tbody.innerHTML = ''; 
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#94a3b8;">No active alerts found.</td></tr>';
-                    return;
-                }
-                data.forEach(inc => {
-                    const color = inc.status === 'Critical' ? '#ef4444' : '#10b981';
-                    tbody.innerHTML += `<tr><td><b>${inc.type}</b></td><td>${inc.location}</td><td style="color:${color}">${inc.status}</td></tr>`;
-                });
-            });
-
-        async function sendMessage() {
-            const input = document.getElementById('userInput');
-            const text = input.value.trim();
-            if(!text) return;
-            addMsg(text, 'user');
-            input.value = '';
-            try {
-                const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: text}) });
-                const data = await res.json();
-                addMsg(data.reply, 'ai');
-            } catch(e) { addMsg("⚠️ Error connecting to AI.", 'ai'); }
-        }
-        function addMsg(text, type) {
-            const div = document.createElement('div');
-            div.className = `msg ${type}`;
-            div.textContent = text;
-            document.getElementById('messages').appendChild(div);
-        }
-        function handleKey(e) { if(e.key === 'Enter') sendMessage(); }
-    </script>
-</body>
-</html>
+        /* NEW: Launch Pad (Replaces broken iframes) */
+        .launch-pad { 
+            flex: 1; background: var(--panel); border-radius: 12px; border: 1px solid #334155;
+            display: flex; flex-direction: column; align-items: center; justify-content
