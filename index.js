@@ -9,13 +9,13 @@ const RateLimit = require('express-rate-limit');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" }, maxHttpBufferSize: 5e7 }); // 50MB Limit
+const io = new Server(server, { cors: { origin: "*" }, maxHttpBufferSize: 5e7 }); 
 const PORT = process.env.PORT || 3000;
 
-// Basic rate limiter for the root route
+// Rate Limiter
 const rootLimiter = RateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
 });
 
 app.use(express.static('public'));
@@ -26,21 +26,16 @@ let activeUnits = {};
 
 // --- SOCKET.IO ---
 io.on('connection', (socket) => {
-    // 1. Login
     socket.on('unit-login', (data) => {
         activeUnits[socket.id] = { ...data, socketId: socket.id };
         io.emit('map-update', Object.values(activeUnits));
     });
-
-    // 2. GPS
     socket.on('location-update', (data) => {
         if (activeUnits[socket.id]) {
             Object.assign(activeUnits[socket.id], data);
             io.emit('map-update', Object.values(activeUnits));
         }
     });
-
-    // 3. Radio Voice
     socket.on('radio-voice', async (data) => {
         socket.broadcast.emit('radio-playback', data); 
         await supabase.from('radio_logs').insert([{ 
@@ -48,8 +43,6 @@ io.on('connection', (socket) => {
             audio_data: data.audio, lat: data.lat, lng: data.lng 
         }]);
     });
-    
-    // 4. Radio Text
     socket.on('radio-text', async (data) => {
         io.emit('radio-text-broadcast', data);
         await supabase.from('radio_logs').insert([{ 
@@ -57,24 +50,22 @@ io.on('connection', (socket) => {
             lat: data.lat, lng: data.lng 
         }]);
     });
-
     socket.on('disconnect', () => {
         delete activeUnits[socket.id];
         io.emit('map-update', Object.values(activeUnits));
     });
 });
 
-// --- API ROUTES (THE MISSING LINKS) ---
+// --- API ROUTES (Consolidated) ---
 
 // 1. DATA & CONFIG
 app.get('/api/radio-history', async (req, res) => {
     const { data } = await supabase.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(20);
     res.json(data ? data.reverse() : []);
 });
-
 app.get('/api/config/:key', async (req, res) => {
     const { data } = await supabase.from('app_config').select('value').eq('key', req.params.key).single();
-    res.json(data ? data.value : ["General"]);
+    res.json(data ? data.value : ["General", "Patrol", "Incident"]);
 });
 app.post('/api/config', async (req, res) => {
     const { key, value } = req.body;
@@ -94,7 +85,6 @@ app.get('/api/staff', async (req, res) => {
 });
 app.get('/api/stats/:name', async (req, res) => {
     const { count } = await supabase.from('field_reports').select('*', { count: 'exact' }).eq('officer_name', req.params.name);
-    // Simple hours calc to prevent crash
     res.json({ reports: count || 0, hours: "0.0" }); 
 });
 
@@ -118,7 +108,7 @@ app.post('/api/tickets', async (req, res) => {
     res.json({ status: 'ok' });
 });
 
-// 4. OPS (Clock, Reports, Licenses, Courses)
+// 4. OPS
 app.post('/api/clock', async (req, res) => {
     const { action, officer_name, role, lat, lng } = req.body;
     if (action === 'in') await supabase.from('timesheets').insert([{ officer_name, role_worked: role, lat, lng, clock_in: new Date() }]);
