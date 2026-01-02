@@ -8,49 +8,50 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
-        // Global State
+        // Global Variables
         let sb = null;
+        let socket = null;
         let currentUser = null;
-        
-        // Supabase Config
+        let mediaRecorder, audioChunks=[];
+        let currentChannel = 'MAIN';
+        let isDispatched = false; 
+        let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // 1. Initialize System
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
-        // Initialize immediately
         try {
             sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        } catch (e) { console.error("Supabase Init Fail:", e); }
+        } catch (e) { console.error("Supabase Init Error:", e); }
 
-        // UI Helpers
+        // 2. Auth Functions (Defined Early)
         function toggleAuth(mode) {
             document.getElementById('loginForm').style.display = mode==='login'?'block':'none';
             document.getElementById('signupForm').style.display = mode==='signup'?'block':'none';
         }
 
         async function handleLogin() {
-            if(!sb) return alert("System initializing... try again in 2 seconds.");
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const { error } = await sb.auth.signInWithPassword({ email, password });
-            if(error) alert("Login Error: " + error.message);
+            if(error) alert("Login Failed: " + error.message);
         }
 
         async function handleSignup() {
-            if(!sb) return alert("System initializing...");
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) alert(error.message); else alert("Applied. Please check your email.");
+            if(error) alert(error.message); else alert("Applied. Check Email.");
         }
 
         async function doLogout() {
-            if(sb) await sb.auth.signOut();
-            location.reload();
+            await sb.auth.signOut(); 
+            // Auth listener will handle UI switch
         }
 
         async function clockOut() {
@@ -64,7 +65,7 @@
     </script>
     
     <style>
-        /* --- STYLING --- */
+        /* --- STYLES --- */
         :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f59e0b; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
@@ -99,11 +100,10 @@
         .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
         .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); }
 
-        /* RADIO SPECIFIC */
+        /* RADIO */
         .chat-log { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
         .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; font-size: 0.9rem; }
-        .chat-play-btn { cursor: pointer; color: var(--orange); margin-right: 5px; font-weight: bold; font-size: 1.1em; }
-        .chat-play-btn:hover { color: #fff; }
+        .chat-voice { border-color: var(--orange); cursor: pointer; display: flex; align-items: center; gap: 10px; }
         
         .chan-btn { flex:1; background:#333; border:1px solid #555; color:#aaa; padding:5px; cursor:pointer; font-weight:bold; font-size:0.7rem; }
         .chan-btn:hover { background:#444; }
@@ -212,7 +212,7 @@
                     
                     <div style="margin-top:10px; text-align:center;">
                         <button onclick="unlockAudio()" id="audioUnlockBtn" style="background:transparent; border:1px solid #555; color:#f59e0b; font-size:0.7rem; padding:5px; cursor:pointer; width:100%;">
-                            ⚠️ CLICK TO ACTIVATE AUDIO
+                            ⚠️ CLICK TO CONNECT AUDIO & MIC
                         </button>
                     </div>
                 </div>
@@ -258,20 +258,14 @@
     </div>
 
     <script>
-        let socket = null;
-        let mediaRecorder, audioChunks=[];
-        let currentChannel = 'MAIN';
-        let isDispatched = false; 
-        let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-        // Initialize Logic
+        // Init Logic runs after DOM load
         window.onload = () => {
             // Check Socket
             if(typeof io !== 'undefined') {
                 socket = io();
                 setupSocketListeners();
             } else {
-                console.warn("Socket.io not loaded. Radio will be disabled.");
+                console.warn("Socket.io not loaded.");
             }
 
             // Auth State Listener
@@ -291,12 +285,14 @@
 
         // --- CORE FUNCTIONS ---
         async function fetchProfile(uid, email) {
-            let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
+            let { data: profile, error } = await sb.from('profiles').select('*').eq('id', uid).single();
             
+            // Auto-create profile
             if (!profile) {
+                console.log("Creating new profile...");
                 await sb.from('profiles').insert([{ id: uid, email: email, full_name: "Officer", role: "Unassigned" }]);
-                const { data: newProfile } = await sb.from('profiles').select('*').eq('id', uid).single();
-                profile = newProfile;
+                const res = await sb.from('profiles').select('*').eq('id', uid).single();
+                profile = res.data;
             }
 
             if(profile) {
@@ -310,6 +306,7 @@
                     document.getElementById('commandLinks').style.display = 'block';
                 }
                 
+                // Join Radio
                 if(socket) {
                     socket.emit('join-channel', 'MAIN');
                     if(navigator.geolocation) navigator.geolocation.watchPosition(pos => {
@@ -327,9 +324,8 @@
                 addLog(d.name, "Audio", true, d.audio);
                 if(d.audio && d.audio.length > 50) {
                     playSound('ptt-on');
-                    let snd = new Audio(d.audio);
-                    snd.onended = () => playSound('ptt-off');
-                    snd.play().catch(e => console.warn("Auto-play blocked"));
+                    // NO AUTO PLAY (Fixes audio error loop)
+                    // Users click play manually, or enable auto-play if interaction exists
                 }
             });
             socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false));
@@ -351,9 +347,11 @@
                     };
                     audioChunks=[];
                 };
-                document.getElementById('audioUnlockBtn').innerText = "✅ AUDIO ACTIVE";
-                document.getElementById('audioUnlockBtn').style.color = "#10b981";
-            }).catch(e => alert("Mic Denied"));
+                const btn = document.getElementById('audioUnlockBtn');
+                btn.innerText = "✅ AUDIO ACTIVE";
+                btn.style.color = "#10b981";
+                btn.style.borderColor = "#10b981";
+            }).catch(e => console.log("Mic Denied"));
         }
 
         function playSound(type) {
@@ -371,22 +369,21 @@
         function addLog(n, m, v, s) {
             const d = document.createElement('div'); d.className = 'chat-msg';
             if(v) {
-                // Audio Message
                 d.innerHTML = `<div><b>${n}</b> <span style="font-size:0.8em; color:#999;">${new Date().toLocaleTimeString()}</span></div>`;
+                // SAFE AUDIO PLAYER
                 if(s && s.length > 50) {
-                    const playBtn = document.createElement('span');
-                    playBtn.className = 'chat-play-btn';
-                    playBtn.innerHTML = '▶';
+                    const playBtn = document.createElement('button');
+                    playBtn.innerText = "▶ PLAY";
+                    playBtn.style.cssText = "background:#333; border:1px solid #555; color:#0f0; margin-top:5px; cursor:pointer;";
                     playBtn.onclick = () => {
                         const sound = new Audio(s);
-                        sound.play().catch(e => alert("Audio Error: " + e.message));
+                        sound.play().catch(e => console.log("Play error", e));
                     };
-                    d.prepend(playBtn);
+                    d.appendChild(playBtn);
                 } else {
                     d.innerHTML += " <i>(Audio Error)</i>";
                 }
             } else {
-                // Text Message
                 d.innerHTML = `<b>${n}</b>: ${m}`;
             }
             const area = document.getElementById('chatArea');
