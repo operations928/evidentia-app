@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evidentia CAD</title>
+    <title>Evidentia Live Command</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     
     <style>
         :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f59e0b; }
@@ -13,249 +14,285 @@
         
         /* Sidebar */
         .sidebar { width: 220px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 15px; }
-        .logo { font-size: 1.2rem; font-weight: bold; color: var(--accent); margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .logo { font-size: 1.1rem; font-weight: bold; color: var(--accent); margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
         
-        /* Time Clock Section */
         .clock-section { background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155; text-align: center; }
         .clock-btn { width: 100%; padding: 10px; margin-top: 5px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         .btn-in { background: var(--green); color: white; }
         .btn-out { background: var(--red); color: white; }
 
-        .menu-label { font-size: 0.75rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 0; font-weight: bold; }
+        .menu-header { font-size: 0.75rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 0; font-weight: bold; }
         .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 8px 0; text-align: left; cursor: pointer; display: block; width: 100%; }
         .nav-btn:hover { color: white; }
 
-        /* Main Grid */
+        /* Main Area */
         .main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
         
-        /* TOP: MAP AREA (50%) */
-        .map-container { flex: 1; position: relative; border-bottom: 2px solid #334155; }
+        /* MAP (Top 50%) */
+        .map-wrapper { flex: 1; position: relative; border-bottom: 2px solid #334155; }
         #map { height: 100%; width: 100%; background: #0f172a; }
-        .map-overlay { position: absolute; top: 10px; right: 10px; z-index: 1000; background: rgba(15, 23, 42, 0.9); padding: 10px; border-radius: 5px; border: 1px solid #334155; font-size: 0.8rem; }
+        .unit-counter { position: absolute; top: 10px; right: 10px; z-index: 1000; background: rgba(15,23,42,0.9); padding: 8px 12px; border-radius: 5px; border: 1px solid #334155; font-size: 0.8rem; }
 
-        /* BOTTOM: SPLIT VIEW (50%) */
+        /* BOTTOM PANEL (Bottom 50%) */
         .bottom-panel { flex: 1; display: flex; overflow: hidden; }
         
-        /* LEFT: RADIO DISPATCH */
-        .radio-panel { flex: 1; border-right: 1px solid #334155; display: flex; flex-direction: column; background: #0b1120; }
-        .radio-header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; font-weight: bold; display: flex; justify-content: space-between; }
-        .radio-logs { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 0.9rem; }
-        .radio-msg { padding: 5px 10px; border-left: 3px solid var(--accent); background: rgba(59, 130, 246, 0.1); }
-        .radio-controls { padding: 10px; background: var(--panel); display: flex; gap: 10px; }
-        .ppt-btn { background: var(--orange); color: black; border: none; font-weight: bold; padding: 0 15px; border-radius: 4px; cursor: pointer; }
+        /* RADIO (Left) */
+        .radio-box { flex: 1; border-right: 1px solid #334155; display: flex; flex-direction: column; background: #0b1120; }
+        .radio-header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .live-indicator { height: 10px; width: 10px; background: var(--green); border-radius: 50%; display: inline-block; box-shadow: 0 0 5px var(--green); animation: pulse 2s infinite; }
         
-        /* RIGHT: OPERATIONS & REPORTING */
-        .ops-panel { flex: 1; padding: 20px; overflow-y: auto; background: var(--bg); }
-        .ops-header { font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: var(--text); border-bottom: 1px solid #334155; padding-bottom: 10px; }
-        
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 5px; }
-        .form-control { width: 100%; background: var(--panel); border: 1px solid #334155; color: white; padding: 8px; border-radius: 4px; box-sizing: border-box; }
-        
-        .submit-btn { width: 100%; background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .submit-btn:hover { background: var(--accent-hover); }
+        .radio-log-area { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 0.9rem; }
+        .radio-entry { padding: 8px; background: rgba(255,255,255,0.05); border-left: 3px solid var(--accent); border-radius: 0 4px 4px 0; }
 
-        /* Status colors */
-        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .dot-green { background: var(--green); }
-        .dot-red { background: var(--red); }
+        /* PTT Button Area */
+        .ptt-area { padding: 20px; background: var(--panel); display: flex; flex-direction: column; align-items: center; gap: 10px; border-top: 1px solid #334155; }
+        .ptt-btn { 
+            width: 100px; height: 100px; border-radius: 50%; border: 4px solid #475569; 
+            background: linear-gradient(145deg, #1e293b, #0f172a); color: #94a3b8; font-weight: bold; font-size: 1rem;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); user-select: none; transition: all 0.1s;
+        }
+        .ptt-btn:active, .ptt-btn.talking { 
+            border-color: var(--orange); background: var(--orange); color: black; box-shadow: 0 0 20px var(--orange); transform: scale(0.95); 
+        }
+
+        /* OPS (Right) */
+        .ops-box { flex: 1; padding: 20px; overflow-y: auto; background: var(--bg); }
+        .ops-title { font-size: 1.1rem; font-weight: bold; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 5px; }
+        .form-control { width: 100%; background: var(--panel); border: 1px solid #334155; color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
+        .btn-submit { width: 100%; background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
         <div class="logo">🛡️ EVIDENTIA CAD</div>
-        
         <div class="clock-section">
-            <div style="font-size:0.8rem; color:#94a3b8;">OFFICER TIME CLOCK</div>
-            <button class="clock-btn btn-in" onclick="clockAction('in')">CLOCK IN</button>
-            <button class="clock-btn btn-out" onclick="clockAction('out')">CLOCK OUT</button>
-            <div id="clock-status" style="margin-top:5px; font-size:0.8rem; color:white;">Status: Off Duty</div>
+            <div style="font-size:0.8rem; color:#94a3b8;">TIME CLOCK</div>
+            <button class="clock-btn btn-in" onclick="clock('in')">CLOCK IN</button>
+            <button class="clock-btn btn-out" onclick="clock('out')">CLOCK OUT</button>
+            <div id="status-display" style="margin-top:10px; font-size:0.85rem;">Status: Off Duty</div>
         </div>
-
-        <div class="menu-label">System</div>
-        <button class="nav-btn">📊 Dashboard Stats</button>
-        <button class="nav-btn">📅 Shift Schedule</button>
-        <button class="nav-btn">👥 Team (Online)</button>
         
-        <div class="menu-label">Training</div>
-        <button class="nav-btn">🎓 Online Modules</button>
-        <button class="nav-btn">📘 Practical Guides</button>
+        <div class="menu-header">Operations</div>
+        <button class="nav-btn">TOC Tasks</button>
+        <button class="nav-btn">Closed Reports</button>
+        <button class="nav-btn">Previous Calls</button>
+        
+        <div class="menu-header">Team</div>
+        <button class="nav-btn">Online Members</button>
+        <button class="nav-btn">Internal Chat</button>
+
+        <div class="menu-header">Admin</div>
+        <button class="nav-btn">Timesheets</button>
+        <button class="nav-btn">Training Modules</button>
     </div>
 
     <div class="main">
-        <div class="map-container">
-            <div class="map-overlay">
-                <div><span class="status-dot dot-green"></span> 2 Units Online</div>
-                <div><span class="status-dot dot-red"></span> 1 Active Alarm</div>
-            </div>
+        <div class="map-wrapper">
+            <div class="unit-counter"><span class="live-indicator"></span> Live Tracking Active</div>
             <div id="map"></div>
         </div>
 
         <div class="bottom-panel">
             
-            <div class="radio-panel">
+            <div class="radio-box">
                 <div class="radio-header">
-                    <span>📡 RADIO DISPATCH</span>
-                    <span style="color:var(--green); font-size:0.8rem;">● LIVE</span>
+                    <span>CHANNEL: MAIN DISPATCH</span>
+                    <span style="color:var(--orange); font-size:0.8rem;">VOICE ACTIVE</span>
                 </div>
-                <div class="radio-logs" id="radioLogs">
-                    <div class="radio-msg"><span style="color:#94a3b8;">14:02 [DISPATCH]:</span> All units, check in for shift briefing.</div>
+                <div class="radio-log-area" id="radioLogs">
+                    <div class="radio-entry">System: Radio Channel Open. Hold PTT to speak.</div>
                 </div>
-                <div class="radio-controls">
-                    <button class="ppt-btn" onclick="sendRadio('10-4 Acknowledged')">10-4</button>
-                    <input type="text" id="radioInput" class="form-control" placeholder="Type message..." onkeypress="handleRadioKey(event)">
-                    <button style="background:var(--accent); color:white; border:none; padding:0 15px; border-radius:4px;" onclick="sendRadio()">SEND</button>
+                <div class="ptt-area">
+                    <button id="pttBtn" class="ptt-btn">HOLD<br>TO TALK</button>
+                    <div style="font-size:0.8rem; color:#64748b;">Status: <span id="radioStatus">Standby</span></div>
                 </div>
             </div>
 
-            <div class="ops-panel">
-                <div class="ops-header">📝 Field Reporting & Ops</div>
+            <div class="ops-box">
+                <div class="ops-title">New Operation Report</div>
                 
                 <div class="form-group" style="margin-bottom:15px;">
-                    <label>Operation Category</label>
-                    <select id="opCategory" class="form-control" onchange="updateSubtypes()">
-                        <option value="General">General Patrol</option>
+                    <label>Operation Type</label>
+                    <select id="opType" class="form-control" onchange="updateSub()">
+                        <option value="Escort">ATM / CPO Escort</option>
                         <option value="Alarm">Alarm Response</option>
-                        <option value="Escort">CPO / Escort</option>
-                        <option value="Enhanced">Enhanced Ops (LPR/Drone)</option>
+                        <option value="Patrol">Enhanced Patrol</option>
+                        <option value="Special">Special Ops (Drone/K9)</option>
                     </select>
                 </div>
 
-                <div class="form-grid">
+                <div class="form-row">
                     <div class="form-group">
-                        <label>Specific Type</label>
-                        <select id="opSubtype" class="form-control">
-                            <option>Site Patrol</option>
-                            <option>Vagrancy Removal</option>
+                        <label>Sub-Type</label>
+                        <select id="opSub" class="form-control">
+                            <option>Bank</option>
+                            <option>Residential</option>
+                            <option>Commercial</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Location / Site</label>
-                        <input type="text" id="opLoc" class="form-control" placeholder="Address or Site ID">
+                        <label>Location</label>
+                        <input type="text" id="opLoc" class="form-control" placeholder="Address">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Situation Report / Details</label>
-                    <textarea id="opDetails" class="form-control" rows="3" placeholder="Describe situation, ground conditions, or alarm status..."></textarea>
+                    <label>Report Details</label>
+                    <textarea id="opDet" class="form-control" rows="3" placeholder="Enter logs, observations, or incident details..."></textarea>
                 </div>
 
-                <button class="submit-btn" onclick="submitOp()">SUBMIT REPORT TO TOC</button>
-                
-                <div style="margin-top:20px; border-top:1px solid #334155; padding-top:10px;">
-                    <label style="color:#94a3b8; font-size:0.85rem;">Recent Tasks</label>
-                    <div style="background:#0f172a; padding:10px; border-radius:4px; margin-top:5px; font-size:0.9rem;">
-                        <div style="color:var(--green);">✔ [Alarm] Residential - Resolved</div>
-                        <div style="color:var(--orange);">● [Escort] ATM 104 - In Progress</div>
-                    </div>
-                </div>
+                <button class="btn-submit" onclick="submitReport()">SUBMIT TO TOC</button>
             </div>
-
         </div>
     </div>
 
     <script>
-        // --- 1. MAP INIT (Leaflet) ---
-        // Defaulting to Ottawa coordinates (Change to your main city)
-        const map = L.map('map').setView([45.4215, -75.6972], 13);
-        
-        // Dark Mode Map Tiles
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+        // --- 1. SOCKET.IO & MAP ---
+        const socket = io();
+        const map = L.map('map').setView([45.4215, -75.6972], 13); // Default: Ottawa
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-        // Fetch Live Map Data
-        async function updateMap() {
-            const res = await fetch('/api/map-data');
-            const data = await res.json();
+        const markers = {};
+
+        // Listen for map updates
+        socket.on('map-update', (units) => {
+            // Remove old markers
+            for (let id in markers) map.removeLayer(markers[id]);
             
-            // Clear existing markers (pseudo-code logic for simplicity)
-            // In a full app, you'd track marker IDs to update positions smoothly
-            data.officers.forEach(off => {
-                L.marker([off.lat, off.lng])
-                 .addTo(map)
-                 .bindPopup(`<b>${off.name}</b><br>Status: ${off.status}`);
+            // Add new markers
+            units.forEach(u => {
+                if(u.lat && u.lng) {
+                    const icon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background:${u.color || '#3b82f6'}; width:12px; height:12px; border-radius:50%; border:2px solid white;"></div>`,
+                        iconSize: [15, 15]
+                    });
+                    const m = L.marker([u.lat, u.lng], {icon: icon}).addTo(map)
+                        .bindPopup(`<b>${u.name}</b><br>${u.status}`);
+                    markers[u.id] = m;
+                }
+            });
+        });
+
+        // Send MY location (Fake GPS for demo, or real if available)
+        if(navigator.geolocation) {
+            navigator.geolocation.watchPosition(pos => {
+                socket.emit('location-update', {
+                    id: socket.id,
+                    name: 'Officer Unit',
+                    status: 'Patrol',
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude
+                });
+                // Center map on self initially
+                // map.setView([pos.coords.latitude, pos.coords.longitude], 14);
             });
         }
-        updateMap(); // Load immediately
 
-        // --- 2. DYNAMIC DROPDOWNS ---
-        function updateSubtypes() {
-            const cat = document.getElementById('opCategory').value;
-            const sub = document.getElementById('opSubtype');
-            sub.innerHTML = ''; // Clear
-            
-            let opts = [];
-            if(cat === 'Alarm') opts = ['Residential', 'Bank', 'Commercial'];
-            else if(cat === 'Escort') opts = ['ATM Escort', 'Bodyguarding', 'V.I.P Transport'];
-            else if(cat === 'Enhanced') opts = ['LPR Patrol', 'Drone Surveillance', 'Static Guarding'];
-            else opts = ['Site Patrol', 'Vagrancy Removal', 'Full Inspection (Int/Ext)'];
-            
-            opts.forEach(o => {
-                const el = document.createElement('option');
-                el.innerText = o;
-                sub.appendChild(el);
+        // --- 2. RADIO (PUSH TO TALK) ---
+        const pttBtn = document.getElementById('pttBtn');
+        const radioStatus = document.getElementById('radioStatus');
+        const radioLogs = document.getElementById('radioLogs');
+        let mediaRecorder;
+        let audioChunks = [];
+
+        // Setup Mic
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks);
+                    audioChunks = [];
+                    
+                    // Send to Server
+                    socket.emit('radio-voice', audioBlob);
+                    
+                    // Log my own transmission
+                    addLog("Me", "Transmission Sent");
+                };
+            })
+            .catch(err => {
+                alert("Microphone access denied. Radio will not work.");
             });
+
+        // Button Events (Desktop & Mobile Touch)
+        function startTalk() {
+            if (mediaRecorder && mediaRecorder.state === "inactive") {
+                mediaRecorder.start();
+                pttBtn.classList.add('talking');
+                radioStatus.innerText = "Transmitting...";
+                radioStatus.style.color = "var(--orange)";
+            }
         }
 
-        // --- 3. RADIO LOGIC ---
-        async function loadRadio() {
-            const res = await fetch('/api/radio');
-            const logs = await res.json();
-            const container = document.getElementById('radioLogs');
-            container.innerHTML = '';
-            logs.reverse().forEach(log => {
-                const div = document.createElement('div');
-                div.className = 'radio-msg';
-                const time = new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                div.innerHTML = `<span style="color:#94a3b8;">${time} [${log.sender || 'UNIT'}]:</span> ${log.message}`;
-                container.appendChild(div);
-            });
-            container.scrollTop = container.scrollHeight;
+        function stopTalk() {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                pttBtn.classList.remove('talking');
+                radioStatus.innerText = "Standby";
+                radioStatus.style.color = "#94a3b8";
+            }
         }
-        setInterval(loadRadio, 3000); // Poll every 3 seconds for "Live" feel
 
-        async function sendRadio(presetMsg) {
-            const input = document.getElementById('radioInput');
-            const msg = presetMsg || input.value;
-            if(!msg) return;
+        pttBtn.addEventListener('mousedown', startTalk);
+        pttBtn.addEventListener('mouseup', stopTalk);
+        pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTalk(); });
+        pttBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopTalk(); });
 
-            await fetch('/api/radio', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ sender: 'OFFICER', message: msg, channel: 'Dispatch' })
-            });
-            input.value = '';
-            loadRadio();
+        // Receive Audio
+        socket.on('radio-playback', (arrayBuffer) => {
+            const blob = new Blob([arrayBuffer]);
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+            audio.play();
+            addLog("Dispatch/Unit", "Incoming Transmission...");
+        });
+
+        function addLog(who, msg) {
+            const div = document.createElement('div');
+            div.className = 'radio-entry';
+            div.innerHTML = `<b>${who}:</b> ${msg}`;
+            radioLogs.appendChild(div);
+            radioLogs.scrollTop = radioLogs.scrollHeight;
         }
-        function handleRadioKey(e) { if(e.key === 'Enter') sendRadio(); }
 
-        // --- 4. OPS & CLOCK ---
-        async function submitOp() {
-            const cat = document.getElementById('opCategory').value;
-            const sub = document.getElementById('opSubtype').value;
+        // --- 3. LOGIC & SUBMIT ---
+        function updateSub() {
+            // Dynamic dropdown logic here...
+        }
+
+        async function submitReport() {
+            const type = document.getElementById('opType').value;
+            const sub = document.getElementById('opSub').value;
             const loc = document.getElementById('opLoc').value;
-            const det = document.getElementById('opDetails').value;
+            const det = document.getElementById('opDet').value;
 
             await fetch('/api/operations', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ type: cat, subtype: sub, location: loc, details: det, officer_name: 'Current User' })
+                body: JSON.stringify({ type, subtype: sub, location: loc, details: det })
             });
-            alert("Report Submitted to TOC");
-            document.getElementById('opDetails').value = '';
+            alert("Report Filed Successfully");
+            document.getElementById('opDet').value = '';
         }
 
-        async function clockAction(type) {
+        async function clock(action) {
             await fetch('/api/clock', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ action: type, officer_name: 'Current User' })
+                body: JSON.stringify({ action, officer_name: 'User' })
             });
-            const status = type === 'in' ? 'On Duty' : 'Off Duty';
-            document.getElementById('clock-status').innerText = `Status: ${status}`;
-            alert(`Clocked ${type.toUpperCase()} Successfully`);
+            document.getElementById('status-display').innerText = action === 'in' ? "Status: ON DUTY" : "Status: OFF DUTY";
         }
     </script>
 </body>
