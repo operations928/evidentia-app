@@ -27,7 +27,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/api/chat', async (req, res) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-pro"});
+        // Use the newer, faster, and more stable model const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
         const prompt = `You are a helpful Security Operations assistant for Evidentia Security. 
                         Keep answers concise and professional. 
                         User asks: ${req.body.message}`;
