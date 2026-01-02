@@ -44,10 +44,12 @@
         .tab-content { display: none; padding: 20px; height: 100%; overflow-y: auto; }
         .tab-content.active-tab { display: block; }
         
-        /* Profile Pic Circle */
-        .profile-circle { width: 80px; height: 80px; border-radius: 50%; background: #334155; margin: 0 auto 10px; overflow: hidden; border: 2px solid var(--accent); position: relative; }
+        /* Profile Styling */
+        .profile-circle { width: 100px; height: 100px; border-radius: 50%; background: #334155; margin: 0 auto 10px; overflow: hidden; border: 3px solid var(--accent); position: relative; }
         .profile-circle img { width: 100%; height: 100%; object-fit: cover; }
         .profile-upload-btn { font-size: 0.8rem; color: var(--accent); cursor: pointer; text-decoration: underline; display: block; text-align: center; margin-bottom: 20px; }
+        
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
 
         .card { background: var(--panel); padding: 20px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 15px; }
         .form-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; margin-bottom: 10px; }
@@ -80,8 +82,7 @@
 
     <div class="modal-overlay" id="authModal">
         <div class="auth-card" id="loginForm">
-            <img src="https://cdn-icons-png.flaticon.com/512/9203/9203764.png" style="width:50px; margin-bottom:10px;">
-            <h2 style="color:var(--accent); margin:0 0 20px 0;">TOC LOGIN</h2>
+            <h2 style="color:var(--accent);">TOC LOGIN</h2>
             <input type="email" id="email" placeholder="Email" class="form-input">
             <input type="password" id="password" placeholder="Password" class="form-input">
             <button class="btn btn-blue" style="width:100%;" onclick="handleLogin()">AUTHENTICATE</button>
@@ -152,23 +153,39 @@
                 </div>
 
                 <div id="tab-profile" class="tab-content">
-                    <h2>Officer Profile</h2>
-                    <div class="card" style="text-align:center;">
-                        <div class="profile-circle">
-                            <img id="profPicDisplay" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
+                    <h2>Officer Personnel File</h2>
+                    <div class="card">
+                        <div style="text-align:center; margin-bottom:20px; border-bottom:1px solid #334155; padding-bottom:20px;">
+                             <div class="profile-circle">
+                                 <img id="profPicDisplay" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
+                             </div>
+                             <label class="profile-upload-btn">
+                                 Click to Update Photo
+                                 <input type="file" id="picInput" style="display:none;" accept="image/*" onchange="uploadProfilePic()">
+                             </label>
                         </div>
-                        <label class="profile-upload-btn">
-                            Click to Update Photo
-                            <input type="file" id="picInput" style="display:none;" accept="image/*" onchange="uploadProfilePic()">
-                        </label>
-                        
-                        <div style="text-align:left;">
-                            <label>Rank / Title</label>
-                            <input type="text" id="profRank" class="form-input" placeholder="e.g. Senior Officer">
-                            <label>Phone</label>
-                            <input type="text" id="profPhone" class="form-input">
-                            <button class="btn btn-blue" onclick="saveProfile()">Save Details</button>
+
+                        <h3>Identity & Role</h3>
+                        <div class="form-grid">
+                            <input type="text" id="profName" placeholder="Full Name" class="form-input" disabled>
+                            <input type="text" id="profTitle" placeholder="Title (e.g. Senior Officer)" class="form-input">
+                            <input type="text" id="profRank" placeholder="Rank" class="form-input">
+                            <input type="text" id="profTeam" placeholder="Team (e.g. Alpha)" class="form-input">
+                            <div>
+                                <label style="font-size:0.8rem; color:#94a3b8;">Date of Birth</label>
+                                <input type="date" id="profDob" class="form-input">
+                            </div>
                         </div>
+
+                        <h3>Contact Information</h3>
+                        <div class="form-grid">
+                            <input type="text" id="profWPhone" placeholder="Work Phone" class="form-input">
+                            <input type="text" id="profPPhone" placeholder="Personal Phone" class="form-input">
+                            <input type="text" id="profWEmail" placeholder="Work Email" class="form-input">
+                            <input type="text" id="profPEmail" placeholder="Personal Email" class="form-input">
+                        </div>
+
+                        <button class="btn btn-blue" style="width:100%; margin-top:15px;" onclick="saveProfile()">Update Personnel File</button>
                     </div>
                 </div>
 
@@ -206,7 +223,6 @@
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         const socket = io();
         let currentUser = null;
-        let audioContext = null; // Browser Audio Policy Fix
         let mediaRecorder, audioChunks=[];
 
         // --- AUTH ---
@@ -243,10 +259,20 @@
         async function fetchProfile(uid) {
             const { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
             currentUser = profile;
+            
+            // Populate Fields
             document.getElementById('dashName').innerText = "Officer: " + profile.full_name;
-            document.getElementById('profRank').value = profile.rank || "";
-            document.getElementById('profPhone').value = profile.work_phone || "";
             if(profile.profile_pic_url) document.getElementById('profPicDisplay').src = profile.profile_pic_url;
+            
+            document.getElementById('profName').value = profile.full_name || '';
+            document.getElementById('profRank').value = profile.rank || '';
+            document.getElementById('profTeam').value = profile.team || '';
+            document.getElementById('profTitle').value = profile.title || '';
+            document.getElementById('profWPhone').value = profile.work_phone || '';
+            document.getElementById('profPPhone').value = profile.personal_phone || '';
+            document.getElementById('profWEmail').value = profile.work_email || '';
+            document.getElementById('profPEmail').value = profile.personal_email || '';
+            document.getElementById('profDob').value = profile.dob || '';
 
             loadConfig();
             loadRadioHistory();
@@ -276,14 +302,14 @@
             }
         }
 
-        // --- PROFILE PIC UPLOAD (Base64) ---
+        // --- PROFILE LOGIC ---
         function uploadProfilePic() {
             const file = document.getElementById('picInput').files[0];
             const reader = new FileReader();
             reader.onloadend = async () => {
-                // Warning: This saves image string to DB. Good for small icons.
-                // ideally use Supabase Storage, but this is faster to setup.
                 document.getElementById('profPicDisplay').src = reader.result;
+                // We will save this along with other details when "Update" is clicked, or immediately here.
+                // Let's save immediately to be safe:
                 await fetch('/api/profile/update', { 
                     method:'POST', headers:{'Content-Type':'application/json'},
                     body: JSON.stringify({ id: currentUser.id, updates: { profile_pic_url: reader.result } })
@@ -293,19 +319,26 @@
         }
 
         async function saveProfile() {
+            const updates = {
+                title: document.getElementById('profTitle').value,
+                rank: document.getElementById('profRank').value,
+                team: document.getElementById('profTeam').value,
+                dob: document.getElementById('profDob').value,
+                work_phone: document.getElementById('profWPhone').value,
+                personal_phone: document.getElementById('profPPhone').value,
+                work_email: document.getElementById('profWEmail').value,
+                personal_email: document.getElementById('profPEmail').value
+            };
+            
             await fetch('/api/profile/update', { 
                 method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ id: currentUser.id, updates: { 
-                    rank: document.getElementById('profRank').value,
-                    work_phone: document.getElementById('profPhone').value
-                }})
+                body: JSON.stringify({ id: currentUser.id, updates })
             });
-            alert("Saved.");
+            alert("Personnel File Updated.");
         }
 
-        // --- RADIO (AUDIO FIX) ---
+        // --- RADIO ---
         function unlockAudio() {
-            // Browsers block audio unless triggered by user. This button enables it.
             const audio = new Audio();
             audio.play().catch(() => {});
             alert("Audio Connected. You can now hear transmissions.");
@@ -355,6 +388,10 @@
             if(currentUser && msg) socket.emit('radio-text', {name:currentUser.full_name, msg, lat:0, lng:0});
             else alert("Not logged in");
             document.getElementById('textInput').value='';
+        }
+        
+        function submitReport() {
+            alert("Report Submitted (Mock)");
         }
 
         const map = L.map('map').setView([0,0], 2);
