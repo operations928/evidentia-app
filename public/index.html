@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evidentia Live Command</title>
+    <title>Evidentia ERP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -12,288 +12,340 @@
         :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f59e0b; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
         
-        /* Sidebar */
-        .sidebar { width: 220px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 15px; }
-        .logo { font-size: 1.1rem; font-weight: bold; color: var(--accent); margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        /* Layout */
+        .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 15px; z-index: 20; }
+        .main { flex: 1; display: flex; flex-direction: column; position: relative; }
         
-        .clock-section { background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155; text-align: center; }
-        .clock-btn { width: 100%; padding: 10px; margin-top: 5px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        .btn-in { background: var(--green); color: white; }
-        .btn-out { background: var(--red); color: white; }
+        /* Modal for Role Selection */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .role-card { background: var(--panel); padding: 30px; border-radius: 12px; width: 400px; text-align: center; border: 1px solid #334155; }
+        .role-btn { width: 100%; padding: 15px; margin: 5px 0; background: #334155; border: 1px solid #475569; color: white; cursor: pointer; border-radius: 6px; font-size: 1rem; text-align: left; transition: 0.2s; }
+        .role-btn:hover { background: var(--accent); border-color: var(--accent); }
+        .role-icon { width: 30px; display: inline-block; text-align: center; margin-right: 10px; }
 
-        .menu-header { font-size: 0.75rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 0; font-weight: bold; }
-        .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 8px 0; text-align: left; cursor: pointer; display: block; width: 100%; }
-        .nav-btn:hover { color: white; }
-
-        /* Main Area */
-        .main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
+        /* Left Panel: Comms (Chat + PTT) */
+        .comms-panel { width: 320px; background: #0b1120; border-right: 1px solid #334155; display: flex; flex-direction: column; }
+        .chat-area { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem; }
+        .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; }
+        .chat-voice { border-left-color: var(--orange); cursor: pointer; }
+        .chat-voice:hover { background: rgba(245, 158, 11, 0.1); }
         
-        /* MAP (Top 50%) */
-        .map-wrapper { flex: 1; position: relative; border-bottom: 2px solid #334155; }
-        #map { height: 100%; width: 100%; background: #0f172a; }
-        .unit-counter { position: absolute; top: 10px; right: 10px; z-index: 1000; background: rgba(15,23,42,0.9); padding: 8px 12px; border-radius: 5px; border: 1px solid #334155; font-size: 0.8rem; }
-
-        /* BOTTOM PANEL (Bottom 50%) */
-        .bottom-panel { flex: 1; display: flex; overflow: hidden; }
-        
-        /* RADIO (Left) */
-        .radio-box { flex: 1; border-right: 1px solid #334155; display: flex; flex-direction: column; background: #0b1120; }
-        .radio-header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        .live-indicator { height: 10px; width: 10px; background: var(--green); border-radius: 50%; display: inline-block; box-shadow: 0 0 5px var(--green); animation: pulse 2s infinite; }
-        
-        .radio-log-area { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 0.9rem; }
-        .radio-entry { padding: 8px; background: rgba(255,255,255,0.05); border-left: 3px solid var(--accent); border-radius: 0 4px 4px 0; }
-
-        /* PTT Button Area */
-        .ptt-area { padding: 20px; background: var(--panel); display: flex; flex-direction: column; align-items: center; gap: 10px; border-top: 1px solid #334155; }
+        .ptt-container { padding: 15px; background: var(--panel); border-top: 1px solid #334155; display: flex; flex-direction: column; gap: 10px; }
         .ptt-btn { 
-            width: 100px; height: 100px; border-radius: 50%; border: 4px solid #475569; 
-            background: linear-gradient(145deg, #1e293b, #0f172a); color: #94a3b8; font-weight: bold; font-size: 1rem;
-            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); user-select: none; transition: all 0.1s;
+            width: 100%; height: 80px; background: linear-gradient(145deg, #1e293b, #0f172a); 
+            border: 2px solid #475569; border-radius: 8px; color: #94a3b8; font-weight: bold; font-size: 1.2rem;
+            cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; gap: 10px;
         }
-        .ptt-btn:active, .ptt-btn.talking { 
-            border-color: var(--orange); background: var(--orange); color: black; box-shadow: 0 0 20px var(--orange); transform: scale(0.95); 
-        }
+        .ptt-btn.active { background: var(--orange); color: black; border-color: var(--orange); box-shadow: 0 0 15px var(--orange); }
+        
+        .input-row { display: flex; gap: 5px; }
+        .text-input { flex: 1; background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 4px; }
 
-        /* OPS (Right) */
-        .ops-box { flex: 1; padding: 20px; overflow-y: auto; background: var(--bg); }
-        .ops-title { font-size: 1.1rem; font-weight: bold; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 5px; }
-        .form-control { width: 100%; background: var(--panel); border: 1px solid #334155; color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
-        .btn-submit { width: 100%; background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        /* Right Panel: Operations (Adaptive) */
+        .ops-panel { flex: 1; display: flex; flex-direction: column; }
+        .map-area { flex: 1; background: #1e293b; position: relative; }
+        #map { width: 100%; height: 100%; }
+        
+        .dashboard-controls { height: 250px; background: var(--bg); border-top: 2px solid #334155; padding: 20px; display: flex; gap: 20px; overflow-x: auto; }
+        
+        /* Responder Mode UI */
+        .responder-ui { display: none; width: 100%; gap: 20px; }
+        .status-card { flex: 1; background: var(--panel); padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #334155; }
+        .big-stat { font-size: 2rem; font-weight: bold; margin: 10px 0; }
+        .action-btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        
+        /* Dispatch Mode UI */
+        .dispatch-ui { display: none; width: 100%; }
+        .call-board { width: 100%; border-collapse: collapse; }
+        .call-board th { text-align: left; color: #94a3b8; padding: 5px; border-bottom: 1px solid #334155; }
+        .call-board td { padding: 8px 5px; border-bottom: 1px solid #334155; }
 
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        /* Settings Gear */
+        .settings-btn { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #64748b; cursor: pointer; font-size: 1.2rem; z-index: 1001; }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="logo">🛡️ EVIDENTIA CAD</div>
-        <div class="clock-section">
-            <div style="font-size:0.8rem; color:#94a3b8;">TIME CLOCK</div>
-            <button class="clock-btn btn-in" onclick="clock('in')">CLOCK IN</button>
-            <button class="clock-btn btn-out" onclick="clock('out')">CLOCK OUT</button>
-            <div id="status-display" style="margin-top:10px; font-size:0.85rem;">Status: Off Duty</div>
-        </div>
-        
-        <div class="menu-header">Operations</div>
-        <button class="nav-btn">TOC Tasks</button>
-        <button class="nav-btn">Closed Reports</button>
-        <button class="nav-btn">Previous Calls</button>
-        
-        <div class="menu-header">Team</div>
-        <button class="nav-btn">Online Members</button>
-        <button class="nav-btn">Internal Chat</button>
+    <div class="modal-overlay" id="loginModal">
+        <div class="role-card">
+            <h2 style="color:var(--accent); margin-top:0;">Evidentia Login</h2>
+            <p style="color:#94a3b8; margin-bottom:20px;">Select your operational role to clock in.</p>
+            
+            <input type="text" id="username" placeholder="Officer Name / ID" style="width:90%; padding:10px; margin-bottom:15px; background:#0f172a; border:1px solid #334155; color:white; border-radius:6px;">
 
-        <div class="menu-header">Admin</div>
-        <button class="nav-btn">Timesheets</button>
-        <button class="nav-btn">Training Modules</button>
+            <button class="role-btn" onclick="login('Responder')"><span class="role-icon">🚓</span> Responder (Patrol/Unit)</button>
+            <button class="role-btn" onclick="login('Dispatch')"><span class="role-icon">🎧</span> Dispatch / TOC</button>
+            <button class="role-btn" onclick="login('Command')"><span class="role-icon">⭐</span> Command / Supervisor</button>
+            <button class="role-btn" onclick="login('FTO')"><span class="role-icon">📋</span> Field Training Officer</button>
+            <button class="role-btn" onclick="login('Instructor')"><span class="role-icon">🎓</span> Instructor</button>
+        </div>
     </div>
 
-    <div class="main">
-        <div class="map-wrapper">
-            <div class="unit-counter"><span class="live-indicator"></span> Live Tracking Active</div>
+    <div class="comms-panel">
+        <div style="padding:15px; border-bottom:1px solid #334155; font-weight:bold;">
+            CH: MAIN DISPATCH <span id="gps-indicator" style="font-size:0.7rem; color:var(--green); float:right;">GPS: ACQUIRING...</span>
+        </div>
+        
+        <div class="chat-area" id="chatArea">
+            <div class="chat-msg">System: Radio Archive Online. Click voice msgs to play.</div>
+        </div>
+
+        <div class="ptt-container">
+            <div class="input-row">
+                <input type="text" id="textInput" class="text-input" placeholder="Message TOC..." onkeypress="handleKey(event)">
+                <button onclick="sendText()" style="background:var(--accent); border:none; color:white; border-radius:4px; padding:0 10px;">➤</button>
+            </div>
+            
+            <button id="pttBtn" class="ptt-btn">
+                <span>🎙️</span> <span id="pttText">PUSH TO TALK</span>
+            </button>
+            <div style="font-size:0.75rem; color:#64748b; text-align:center;">
+                Hardware Key: <span id="hwKeyLabel">[SPACE]</span> <a href="#" onclick="remapKey()" style="color:var(--accent); text-decoration:none;">(Change)</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="ops-panel">
+        <div class="map-area">
+            <button class="settings-btn" title="Settings">⚙️</button>
             <div id="map"></div>
         </div>
 
-        <div class="bottom-panel">
+        <div class="dashboard-controls">
             
-            <div class="radio-box">
-                <div class="radio-header">
-                    <span>CHANNEL: MAIN DISPATCH</span>
-                    <span style="color:var(--orange); font-size:0.8rem;">VOICE ACTIVE</span>
+            <div id="responderUI" class="responder-ui">
+                <div class="status-card">
+                    <div style="color:#94a3b8; font-size:0.8rem;">CURRENT STATUS</div>
+                    <div class="big-stat" id="respStatus" style="color:var(--green)">STANDBY</div>
+                    <div style="font-size:0.8rem; color:#64748b;">Waiting for calls (Unpaid)</div>
                 </div>
-                <div class="radio-log-area" id="radioLogs">
-                    <div class="radio-entry">System: Radio Channel Open. Hold PTT to speak.</div>
-                </div>
-                <div class="ptt-area">
-                    <button id="pttBtn" class="ptt-btn">HOLD<br>TO TALK</button>
-                    <div style="font-size:0.8rem; color:#64748b;">Status: <span id="radioStatus">Standby</span></div>
-                </div>
-            </div>
-
-            <div class="ops-box">
-                <div class="ops-title">New Operation Report</div>
                 
-                <div class="form-group" style="margin-bottom:15px;">
-                    <label>Operation Type</label>
-                    <select id="opType" class="form-control" onchange="updateSub()">
-                        <option value="Escort">ATM / CPO Escort</option>
-                        <option value="Alarm">Alarm Response</option>
-                        <option value="Patrol">Enhanced Patrol</option>
-                        <option value="Special">Special Ops (Drone/K9)</option>
-                    </select>
+                <div class="status-card" style="border-color:var(--accent);">
+                    <div style="color:var(--accent); font-weight:bold;">INCOMING CALL: ALARM #992</div>
+                    <div style="margin:10px 0;">Residential Alarm - 123 Main St</div>
+                    <button class="action-btn" style="background:var(--green); color:white;" onclick="missionAction('accept')">ACCEPT CALL</button>
+                    <div style="font-size:0.7rem; margin-top:5px;">Starts Pay & Driving Timer</div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Sub-Type</label>
-                        <select id="opSub" class="form-control">
-                            <option>Bank</option>
-                            <option>Residential</option>
-                            <option>Commercial</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Location</label>
-                        <input type="text" id="opLoc" class="form-control" placeholder="Address">
-                    </div>
+                <div class="status-card">
+                    <div style="color:#94a3b8;">ACTIVE MISSION ACTIONS</div>
+                    <button class="action-btn" style="background:var(--orange);" onclick="missionAction('arrive')">ON SCENE (Stop Drive)</button>
+                    <button class="action-btn" style="background:var(--red); color:white;" onclick="missionAction('complete')">COMPLETE (End Pay)</button>
                 </div>
-
-                <div class="form-group">
-                    <label>Report Details</label>
-                    <textarea id="opDet" class="form-control" rows="3" placeholder="Enter logs, observations, or incident details..."></textarea>
-                </div>
-
-                <button class="btn-submit" onclick="submitReport()">SUBMIT TO TOC</button>
             </div>
+
+            <div id="dispatchUI" class="dispatch-ui">
+                <h3 style="margin-top:0;">Active Call Board</h3>
+                <table class="call-board">
+                    <tr><th>ID</th><th>Type</th><th>Location</th><th>Assigned To</th><th>Status</th></tr>
+                    <tr><td>#102</td><td>Alarm</td><td>West Gate</td><td>Unit 101</td><td style="color:var(--orange)">En Route</td></tr>
+                    <tr><td>#103</td><td>Escort</td><td>ATM 44</td><td>Unit 202</td><td style="color:var(--green)">On Scene</td></tr>
+                </table>
+                <button class="action-btn" style="width:200px; background:var(--accent); color:white; margin-top:15px;">+ Create New Call</button>
+            </div>
+
         </div>
     </div>
 
     <script>
-        // --- 1. SOCKET.IO & MAP ---
+        // --- GLOBALS ---
         const socket = io();
-        const map = L.map('map').setView([45.4215, -75.6972], 13); // Default: Ottawa
+        let myRole = '';
+        let myName = '';
+        let currentLat = 0;
+        let currentLng = 0;
+        let pttKey = ' '; // Default Spacebar
+        let mediaRecorder;
+        let audioChunks = [];
+
+        // --- 1. INITIALIZATION & GPS ---
+        const map = L.map('map').setView([45.4215, -75.6972], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        
+        // Start GPS immediately
+        if(navigator.geolocation) {
+            navigator.geolocation.watchPosition(pos => {
+                currentLat = pos.coords.latitude;
+                currentLng = pos.coords.longitude;
+                document.getElementById('gps-indicator').innerText = `GPS: ${currentLat.toFixed(4)}, ${currentLng.toFixed(4)}`;
+                document.getElementById('gps-indicator').style.color = 'var(--green)';
+                
+                // Emit to server
+                if(myName) socket.emit('location-update', { lat: currentLat, lng: currentLng, status: 'Active' });
+            }, err => {
+                document.getElementById('gps-indicator').innerText = "GPS ERROR";
+                document.getElementById('gps-indicator').style.color = "var(--red)";
+            });
+        }
 
-        const markers = {};
-
-        // Listen for map updates
-        socket.on('map-update', (units) => {
-            // Remove old markers
-            for (let id in markers) map.removeLayer(markers[id]);
+        // --- 2. LOGIN LOGIC ---
+        function login(role) {
+            const name = document.getElementById('username').value;
+            if(!name) return alert("Enter Name");
             
-            // Add new markers
+            myName = name;
+            myRole = role;
+            
+            // UI Switch
+            document.getElementById('loginModal').style.display = 'none';
+            if(role === 'Responder' || role === 'FTO') {
+                document.getElementById('responderUI').style.display = 'flex';
+            } else {
+                document.getElementById('dispatchUI').style.display = 'block';
+            }
+
+            // Server Connect
+            socket.emit('unit-login', { name: myName, role: myRole, lat: currentLat, lng: currentLng });
+            
+            // DB Clock In
+            fetch('/api/clock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'in', officer_name: myName, role: myRole, lat: currentLat, lng: currentLng })
+            });
+        }
+
+        // --- 3. COMMS (PTT & Chat) ---
+        // A. Setup Audio
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                audioChunks = [];
+                
+                // Convert to Base64 to send via Socket
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = () => {
+                    const base64data = reader.result;
+                    socket.emit('radio-voice', { 
+                        audio: base64data, 
+                        name: myName, 
+                        role: myRole,
+                        lat: currentLat, 
+                        lng: currentLng 
+                    });
+                    addChatLog("Me", "Sent Audio Transmission", true, base64data);
+                };
+            };
+        });
+
+        // B. Setup PTT UI Events
+        const btn = document.getElementById('pttBtn');
+        const startTx = () => { 
+            if(mediaRecorder && mediaRecorder.state === 'inactive') {
+                mediaRecorder.start();
+                btn.classList.add('active');
+                document.getElementById('pttText').innerText = "TRANSMITTING...";
+            }
+        };
+        const stopTx = () => {
+            if(mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                btn.classList.remove('active');
+                document.getElementById('pttText').innerText = "PUSH TO TALK";
+            }
+        };
+
+        // Mouse/Touch
+        btn.addEventListener('mousedown', startTx);
+        btn.addEventListener('mouseup', stopTx);
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); startTx(); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); stopTx(); });
+
+        // Hardware Key Mapping
+        document.addEventListener('keydown', (e) => {
+            if(e.key === pttKey && document.activeElement.tagName !== 'INPUT') startTx();
+        });
+        document.addEventListener('keyup', (e) => {
+            if(e.key === pttKey) stopTx();
+        });
+
+        function remapKey() {
+            const newKey = prompt("Press a key to bind to PTT (e.g., z, Space, Control):");
+            if(newKey) {
+                pttKey = newKey;
+                document.getElementById('hwKeyLabel').innerText = `[${newKey.toUpperCase()}]`;
+            }
+        }
+
+        // C. Receive Comms
+        socket.on('radio-playback', (data) => {
+            addChatLog(data.name, "Incoming Transmission", true, data.audio);
+            const audio = new Audio(data.audio);
+            audio.play();
+        });
+
+        socket.on('radio-text-broadcast', (data) => {
+            addChatLog(data.name, data.msg, false);
+        });
+
+        function addChatLog(name, msg, isVoice, audioSrc) {
+            const area = document.getElementById('chatArea');
+            const div = document.createElement('div');
+            div.className = isVoice ? 'chat-msg chat-voice' : 'chat-msg';
+            
+            if(isVoice) {
+                div.innerHTML = `<b>${name}</b>: 🔊 Audio Log (Click to Replay) <span style="font-size:0.7rem; color:#94a3b8; float:right;">GPS Marked</span>`;
+                div.onclick = () => { new Audio(audioSrc).play(); };
+            } else {
+                div.innerHTML = `<b>${name}</b>: ${msg}`;
+            }
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function sendText() {
+            const input = document.getElementById('textInput');
+            if(!input.value) return;
+            socket.emit('radio-text', { name: myName, msg: input.value, lat: currentLat, lng: currentLng });
+            input.value = '';
+        }
+        function handleKey(e) { if(e.key === 'Enter') sendText(); }
+
+        // --- 4. MAP UPDATES ---
+        const markers = {};
+        socket.on('map-update', (units) => {
+            for(let id in markers) map.removeLayer(markers[id]);
             units.forEach(u => {
                 if(u.lat && u.lng) {
-                    const icon = L.divIcon({
-                        className: 'custom-div-icon',
-                        html: `<div style="background:${u.color || '#3b82f6'}; width:12px; height:12px; border-radius:50%; border:2px solid white;"></div>`,
-                        iconSize: [15, 15]
-                    });
-                    const m = L.marker([u.lat, u.lng], {icon: icon}).addTo(map)
-                        .bindPopup(`<b>${u.name}</b><br>${u.status}`);
-                    markers[u.id] = m;
+                    const color = u.role === 'Dispatch' ? '#ef4444' : '#3b82f6';
+                    const marker = L.circleMarker([u.lat, u.lng], { color: color, radius: 8 }).addTo(map)
+                        .bindPopup(`<b>${u.name}</b><br>${u.role}`);
+                    markers[u.socketId] = marker;
                 }
             });
         });
 
-        // Send MY location (Fake GPS for demo, or real if available)
-        if(navigator.geolocation) {
-            navigator.geolocation.watchPosition(pos => {
-                socket.emit('location-update', {
-                    id: socket.id,
-                    name: 'Officer Unit',
-                    status: 'Patrol',
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude
-                });
-                // Center map on self initially
-                // map.setView([pos.coords.latitude, pos.coords.longitude], 14);
-            });
-        }
-
-        // --- 2. RADIO (PUSH TO TALK) ---
-        const pttBtn = document.getElementById('pttBtn');
-        const radioStatus = document.getElementById('radioStatus');
-        const radioLogs = document.getElementById('radioLogs');
-        let mediaRecorder;
-        let audioChunks = [];
-
-        // Setup Mic
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                mediaRecorder = new MediaRecorder(stream);
-                
-                mediaRecorder.ondataavailable = event => {
-                    audioChunks.push(event.data);
-                };
-
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks);
-                    audioChunks = [];
-                    
-                    // Send to Server
-                    socket.emit('radio-voice', audioBlob);
-                    
-                    // Log my own transmission
-                    addLog("Me", "Transmission Sent");
-                };
-            })
-            .catch(err => {
-                alert("Microphone access denied. Radio will not work.");
-            });
-
-        // Button Events (Desktop & Mobile Touch)
-        function startTalk() {
-            if (mediaRecorder && mediaRecorder.state === "inactive") {
-                mediaRecorder.start();
-                pttBtn.classList.add('talking');
-                radioStatus.innerText = "Transmitting...";
-                radioStatus.style.color = "var(--orange)";
+        // --- 5. METRICS (PAY LOGIC) ---
+        function missionAction(action) {
+            // Update UI State
+            if(action === 'accept') {
+                document.getElementById('respStatus').innerText = "EN ROUTE";
+                document.getElementById('respStatus').style.color = "var(--orange)";
+            } else if (action === 'arrive') {
+                document.getElementById('respStatus').innerText = "ON SCENE";
+                document.getElementById('respStatus').style.color = "var(--red)";
+            } else if (action === 'complete') {
+                document.getElementById('respStatus').innerText = "STANDBY";
+                document.getElementById('respStatus').style.color = "var(--green)";
             }
-        }
 
-        function stopTalk() {
-            if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-                pttBtn.classList.remove('talking');
-                radioStatus.innerText = "Standby";
-                radioStatus.style.color = "#94a3b8";
-            }
-        }
-
-        pttBtn.addEventListener('mousedown', startTalk);
-        pttBtn.addEventListener('mouseup', stopTalk);
-        pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTalk(); });
-        pttBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopTalk(); });
-
-        // Receive Audio
-        socket.on('radio-playback', (arrayBuffer) => {
-            const blob = new Blob([arrayBuffer]);
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            audio.play();
-            addLog("Dispatch/Unit", "Incoming Transmission...");
-        });
-
-        function addLog(who, msg) {
-            const div = document.createElement('div');
-            div.className = 'radio-entry';
-            div.innerHTML = `<b>${who}:</b> ${msg}`;
-            radioLogs.appendChild(div);
-            radioLogs.scrollTop = radioLogs.scrollHeight;
-        }
-
-        // --- 3. LOGIC & SUBMIT ---
-        function updateSub() {
-            // Dynamic dropdown logic here...
-        }
-
-        async function submitReport() {
-            const type = document.getElementById('opType').value;
-            const sub = document.getElementById('opSub').value;
-            const loc = document.getElementById('opLoc').value;
-            const det = document.getElementById('opDet').value;
-
-            await fetch('/api/operations', {
+            // Send Metric to Server
+            fetch('/api/metrics', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ type, subtype: sub, location: loc, details: det })
+                body: JSON.stringify({ 
+                    action: action, 
+                    call_id: 992, // Example ID, would be dynamic in real dispatch 
+                    officer_name: myName,
+                    lat: currentLat, 
+                    lng: currentLng 
+                })
             });
-            alert("Report Filed Successfully");
-            document.getElementById('opDet').value = '';
         }
 
-        async function clock(action) {
-            await fetch('/api/clock', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ action, officer_name: 'User' })
-            });
-            document.getElementById('status-display').innerText = action === 'in' ? "Status: ON DUTY" : "Status: OFF DUTY";
-        }
     </script>
 </body>
 </html>
