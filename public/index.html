@@ -239,31 +239,55 @@
         }
 
         async function handleSignup() {
+            console.log("Attempting Signup...");
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const role = document.getElementById('regRole').value;
 
-            const { data, error } = await sb.auth.signUp({
-                email, password,
-                options: { data: { full_name: name, role: role } }
-            });
+            if(!email || !password) return alert("Please fill in email and password");
 
-            if(error) alert(error.message);
-            else alert("Registration successful! Please check your email or log in.");
+            try {
+                const { data, error } = await sb.auth.signUp({
+                    email, password,
+                    options: { data: { full_name: name, role: role } }
+                });
+
+                if (error) {
+                    console.error("Signup Error:", error);
+                    alert("Error: " + error.message);
+                } else {
+                    console.log("Signup Success:", data);
+                    alert("Registration successful! Please check your email to confirm, then log in.");
+                }
+            } catch (err) {
+                console.error("Unexpected Error:", err);
+                alert("System Crash: check console for details.");
+            }
         }
 
         async function handleLogin() {
+            console.log("Attempting Login...");
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             
-            const { data, error } = await sb.auth.signInWithPassword({ email, password });
-            if(error) return alert("Login Failed: " + error.message);
-            
-            document.getElementById('authModal').style.display = 'none';
-            fetchProfile(data.user.id);
-        }
+            if(!email || !password) return alert("Please enter email and password");
 
+            try {
+                const { data, error } = await sb.auth.signInWithPassword({ email, password });
+                
+                if (error) {
+                    console.error("Login Error:", error);
+                    alert("Login Failed: " + error.message);
+                } else {
+                    console.log("Login Success:", data);
+                    document.getElementById('authModal').style.display = 'none';
+                    fetchProfile(data.user.id);
+                }
+            } catch (err) {
+                console.error("Unexpected Error:", err);
+                alert("System Crash: check console for details.");
+            }
         async function fetchProfile(uid) {
             // Get Role from DB
             const { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
