@@ -116,20 +116,54 @@
         </div>
 
         <div class="bottom-deck">
-            <div class="radio-silo">
-                <div style="padding:10px; border-bottom:1px solid #334155; font-weight:bold; font-size:0.8rem; display:flex; justify-content:space-between;">
-                    <span>DISPATCH RADIO</span>
-                    <button onclick="unlockAudio()" style="background:transparent; border:1px solid #64748b; color:var(--green); font-size:0.6rem; cursor:pointer;">CONNECT AUDIO 🔊</button>
-                </div>
-                <div class="chat-log" id="chatArea"></div>
-                <div class="ptt-box">
-                    <div style="display:flex; gap:5px; margin-bottom:10px;">
-                        <input type="text" id="textInput" class="form-input" style="margin:0;" placeholder="Message...">
-                        <button onclick="sendText()" class="btn btn-blue">➤</button>
-                    </div>
-                    <button id="pttBtn" class="ptt-btn"><span>🎙️</span> HOLD TO TALK</button>
-                </div>
-            </div>
+           <div class="radio-silo" style="background:#111; border-right:2px solid #333; display:flex; flex-direction:column; font-family:'Courier New', monospace;">
+    
+    <div style="background:#000; padding:15px; border-bottom:2px solid #444;">
+        <div style="background:#0f380f; color:#00ff00; padding:10px; border:2px inset #0a2a0a; border-radius:4px; margin-bottom:10px; text-shadow: 0 0 5px #00ff00;">
+            <div style="font-size:0.7rem; opacity:0.8;">CHANNEL</div>
+            <div id="lcdChannel" style="font-size:1.5rem; font-weight:bold;">MAIN</div>
+            <div id="lcdStatus" style="font-size:0.7rem; margin-top:5px;">STANDBY</div>
+        </div>
+        
+        <div style="display:flex; gap:5px;">
+            <button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>
+            <button onclick="changeChannel('TAC-1')" class="chan-btn" id="btnTac1">TAC-1</button>
+            <button onclick="changeChannel('LOUNGE')" class="chan-btn" id="btnLounge">LOUNGE</button>
+        </div>
+    </div>
+
+    <div class="chat-log" id="chatArea" style="background:#1a1a1a; flex:1; padding:10px; font-size:0.8rem; font-family:sans-serif;">
+        </div>
+
+    <div class="ptt-box" style="background:#222; padding:15px; border-top:2px solid #444;">
+        <div style="display:flex; gap:5px; margin-bottom:10px;">
+            <input type="text" id="textInput" style="background:#000; color:#0f0; border:1px solid #444; padding:8px; flex:1;" placeholder="TXT...">
+            <button onclick="sendText()" style="background:#444; color:#fff; border:none; padding:0 15px; cursor:pointer;">SEND</button>
+        </div>
+        
+        <button id="pttBtn" class="tactical-ptt">
+            <div style="font-size:1.2rem;">🎙️ PTT</div>
+            <div style="font-size:0.7rem;">HOLD TO TRANSMIT</div>
+        </button>
+        
+        <div style="margin-top:10px; text-align:center;">
+            <button onclick="unlockAudio()" style="background:transparent; border:1px solid #555; color:#777; font-size:0.6rem; padding:2px 5px; cursor:pointer;">
+                ⚠️ ENABLE AUDIO SYSTEM
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* RADIO SPECIFIC STYLES */
+    .chan-btn { flex:1; background:#333; border:1px solid #555; color:#aaa; padding:5px; cursor:pointer; font-weight:bold; font-size:0.7rem; }
+    .chan-btn:hover { background:#444; }
+    .active-chan { background:#00ff00; color:black; border-color:#00ff00; box-shadow:0 0 10px #00ff00; }
+    .locked-chan { background:#300; color:#500; cursor:not-allowed; border-color:#500; }
+    
+    .tactical-ptt { width:100%; height:80px; background:linear-gradient(#333, #111); border:2px solid #555; border-radius:8px; color:#aaa; cursor:pointer; transition:0.1s; }
+    .tactical-ptt:active, .tactical-ptt.transmitting { background:#f59e0b; color:black; border-color:#f59e0b; box-shadow:0 0 15px #f59e0b; transform:scale(0.98); }
+</style>
 
             <div class="workspace">
                 <div id="tab-dashboard" class="tab-content active-tab">
