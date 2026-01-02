@@ -21,7 +21,19 @@ app.post('/api/chat', async (req, res) => {
     try {
         // With the library update, this model will now work reliably
         // The classic model that works on all library versions
-const model = genAI.getGenerativeModel({ model: "gemini-pro"});
+import { GoogleGenAI } from "@google/genai";
+
+const ai = new GoogleGenAI({ apiKey: "YOUR_API_KEY" });
+
+async function main() {
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: "Explain how AI works in a few words",
+  });
+  console.log(response.text);
+}
+
+main();
         
         const prompt = `You are a security operations AI for Evidentia. Keep answers concise and professional. User: ${req.body.message}`;
         const result = await model.generateContent(prompt);
@@ -56,4 +68,5 @@ if (require.main === module) {
     });
 }
 module.exports = app;
+
 
