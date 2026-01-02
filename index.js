@@ -23,7 +23,7 @@ app.post('/api/chat', async (req, res) => {
         // The classic model that works on all library versions
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: "YOUR_API_KEY" });
+const ai = new GoogleGenAI({ apiKey: "YAIzaSyDPT7e9_1uExRUrb4LN1Z0kmryTRqeIvgY" });
 
 async function main() {
   const response = await ai.models.generateContent({
@@ -68,5 +68,6 @@ if (require.main === module) {
     });
 }
 module.exports = app;
+
 
 
