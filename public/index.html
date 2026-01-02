@@ -12,7 +12,7 @@
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
-        // --- GLOBALS ---
+        // GLOBALS
         let sb = null;
         let socket = null;
         let currentUser = null;
@@ -22,7 +22,7 @@
         let isDispatched = false; 
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // --- INIT SUPABASE ---
+        // INIT
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
@@ -30,7 +30,7 @@
             sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         } catch (e) { console.error("Supabase Init Error:", e); }
 
-        // --- AUTH FUNCTIONS ---
+        // AUTH
         function toggleAuth(mode) {
             document.getElementById('loginForm').style.display = mode==='login'?'block':'none';
             document.getElementById('signupForm').style.display = mode==='signup'?'block':'none';
@@ -40,7 +40,7 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const { error } = await sb.auth.signInWithPassword({ email, password });
-            if(error) alert("Login Failed: " + error.message);
+            if(error) alert("Login Failed (Check Supabase Email Settings): " + error.message);
         }
 
         async function handleSignup() {
@@ -48,12 +48,10 @@
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) alert(error.message); else alert("Applied. Check Email.");
+            if(error) alert(error.message); else alert("Applied. If login fails, check Supabase 'Confirm Email' setting.");
         }
 
-        async function doLogout() {
-            await sb.auth.signOut();
-        }
+        async function doLogout() { await sb.auth.signOut(); }
 
         async function clockOut() {
             if(confirm("End Shift & Logout?")) {
@@ -69,55 +67,41 @@
         :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f59e0b; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-        
         .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; z-index: 50; transition: transform 0.3s; }
         .main-content { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; }
-        
         @media (max-width: 768px) {
             .sidebar { position: fixed; height: 100%; transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
             .radio-silo { display: none; } 
             .menu-toggle { display: block !important; }
         }
-
         .menu-toggle { display: none; position: absolute; top: 10px; left: 10px; z-index: 1000; background: var(--panel); border: 1px solid #334155; padding: 8px; border-radius: 4px; color: white; cursor: pointer; }
         .top-deck { height: 40%; display: flex; border-bottom: 2px solid #334155; }
         .bottom-deck { flex: 1; display: flex; overflow: hidden; }
         .radio-silo { width: 300px; background: #0b1120; border-right: 1px solid #334155; display: flex; flex-direction: column; }
         .workspace { flex: 1; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
-
         .nav-cat { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 15px; font-weight: bold; }
         .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; display: flex; gap: 10px; transition: 0.2s; font-size: 0.95rem; }
         .nav-btn:hover { background: #334155; color: white; }
         .nav-btn.active { background: var(--accent); color: white; border-left: 4px solid #60a5fa; }
-        
         .tab-content { display: none; padding: 20px; height: 100%; overflow-y: auto; }
         .tab-content.active-tab { display: block; }
         .card { background: var(--panel); padding: 20px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 15px; }
         .form-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; margin-bottom: 10px; }
         .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
         .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); }
-
         .chat-log { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
         .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; font-size: 0.9rem; }
         .chat-voice { border-color: var(--orange); cursor: pointer; display: flex; align-items: center; gap: 10px; }
-        
         .chan-btn { flex: 1; min-width: 50px; background:#333; border:1px solid #555; color:#aaa; padding:5px; cursor:pointer; font-weight:bold; font-size:0.7rem; white-space: nowrap; }
         .active-chan { background:#00ff00; color:black; border-color:#00ff00; box-shadow:0 0 10px #00ff00; }
-        
         .tactical-ptt { width:100%; height:80px; background:linear-gradient(#333, #111); border:2px solid #555; border-radius:8px; color:#aaa; cursor:pointer; transition:0.1s; }
         .tactical-ptt:active, .tactical-ptt.transmitting { background:#f59e0b; color:black; border-color:#f59e0b; box-shadow:0 0 15px #f59e0b; transform:scale(0.98); }
-
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
-        
         .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
         .app-icon { background: var(--panel); border: 1px solid #334155; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; text-decoration: none; color: white; display: block; font-size: 2rem; }
         .app-icon span { display: block; font-size: 0.8rem; margin-top: 5px; color: #ccc; }
-        
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 5px; }
-        td { padding: 8px 5px; border-bottom: 1px solid #334155; }
     </style>
 </head>
 <body>
@@ -149,7 +133,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:red;">v6.0 FINAL</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v7.0 STATS READY</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -205,20 +189,36 @@
                     </button>
                     <div style="margin-top:10px; text-align:center;">
                         <button onclick="initMic()" id="audioUnlockBtn" style="background:transparent; border:1px solid #555; color:#f59e0b; font-size:0.7rem; padding:5px; cursor:pointer; width:100%;">
-                            ⚠️ CLICK TO CONNECT AUDIO & MIC
+                            ⚠️ CLICK TO CONNECT AUDIO
                         </button>
                     </div>
                 </div>
             </div>
 
             <div class="workspace">
+                
                 <div id="tab-dashboard" class="tab-content active-tab">
                     <h2>Mission Dashboard</h2>
                     <div class="card">
-                        <h3>Status: <span style="color:var(--green)">ACTIVE</span></h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3>Status: <span style="color:var(--green)">ACTIVE</span></h3>
+                            <div id="gpsIndicator" style="font-size:0.7rem; color:red;">GPS: SEARCHING</div>
+                        </div>
                         <p id="dashName">Officer: Loading...</p>
                         <p id="dashRole">Role: Loading...</p>
-                        <button class="btn btn-red" onclick="clockOut()">END SHIFT (Clock Out)</button>
+                        
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:15px 0;">
+                            <div style="background:#0f172a; padding:10px; text-align:center; border-radius:5px;">
+                                <div style="font-size:0.8rem; color:#94a3b8;">REPORTS FILED</div>
+                                <div id="statReports" style="font-size:1.5rem; font-weight:bold;">0</div>
+                            </div>
+                            <div style="background:#0f172a; padding:10px; text-align:center; border-radius:5px;">
+                                <div style="font-size:0.8rem; color:#94a3b8;">HOURS WORKED</div>
+                                <div id="statHours" style="font-size:1.5rem; font-weight:bold;">0.0</div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-red" style="width:100%;" onclick="clockOut()">END SHIFT (Clock Out)</button>
                     </div>
                 </div>
 
@@ -283,6 +283,7 @@
                 setupSocketListeners();
             } else {
                 console.warn("Socket.io not loaded.");
+                document.getElementById('gpsIndicator').innerText = "SOCKET OFFLINE";
             }
 
             if(sb) {
@@ -299,7 +300,6 @@
             }
         };
 
-        // --- DATA LOADING (RESTORED) ---
         async function fetchProfile(uid, email) {
             let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
             if (!profile) {
@@ -319,19 +319,40 @@
                 
                 if(socket) {
                     socket.emit('join-channel', 'MAIN');
-                    if(navigator.geolocation) navigator.geolocation.watchPosition(pos => {
-                        socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat: pos.coords.latitude, lng: pos.coords.longitude });
-                        map.setView([pos.coords.latitude, pos.coords.longitude], 15);
-                    });
+                    // GPS
+                    if(navigator.geolocation) {
+                        navigator.geolocation.watchPosition(
+                            pos => {
+                                socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat: pos.coords.latitude, lng: pos.coords.longitude });
+                                map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+                                document.getElementById('gpsIndicator').innerText = "GPS: LIVE ✅";
+                                document.getElementById('gpsIndicator').style.color = "var(--green)";
+                            },
+                            err => {
+                                document.getElementById('gpsIndicator').innerText = "GPS: BLOCKED ❌";
+                            }
+                        );
+                    }
                 }
                 
-                // Load Data
+                // LOAD ALL DATA
                 loadStaff();
                 loadTickets();
                 loadClients();
                 loadCourses();
                 loadRadioHistory();
+                loadStats(profile.full_name); // LOAD STATS
             }
+        }
+
+        // NEW: LOAD STATS
+        async function loadStats(name) {
+            try {
+                const res = await fetch('/api/stats/' + name);
+                const data = await res.json();
+                document.getElementById('statReports').innerText = data.reports || 0;
+                document.getElementById('statHours').innerText = data.hours || "0.0";
+            } catch(e) { console.log("Stats error"); }
         }
 
         async function loadStaff() {
@@ -364,7 +385,7 @@
             document.getElementById('courseList').innerHTML = data.length ? data.map(c => `<div>${c.title}</div>`).join('') : "No courses.";
         }
 
-        // --- RADIO SYSTEM (FIXED) ---
+        // --- RADIO SYSTEM ---
         function setupSocketListeners() {
             socket.on('radio-playback', d => {
                 addLog(d.name, "Audio", true, d.audio);
@@ -378,11 +399,9 @@
             socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false));
         }
 
-        // THE MISSING FUNCTION (RESTORED)
         function initMic() {
             return new Promise((resolve, reject) => {
                 if(mediaRecorder && mediaRecorder.state !== 'inactive') return resolve(mediaRecorder);
-                
                 navigator.mediaDevices.getUserMedia({audio:true}).then(s => {
                     if(audioCtx.state === 'suspended') audioCtx.resume();
                     mediaRecorder = new MediaRecorder(s);
@@ -398,12 +417,12 @@
                         };
                         audioChunks=[];
                     };
-                    document.getElementById('audioUnlockBtn').innerText = "✅ AUDIO SYSTEM ACTIVE";
+                    document.getElementById('audioUnlockBtn').innerText = "✅ AUDIO ACTIVE";
                     document.getElementById('audioUnlockBtn').style.color = "#10b981";
                     document.getElementById('audioUnlockBtn').style.borderColor = "#10b981";
                     resolve(mediaRecorder);
                 }).catch(e => {
-                    alert("Mic Access Denied! Check Browser Settings.");
+                    alert("Mic Access Denied!");
                     reject(e);
                 });
             });
@@ -463,13 +482,11 @@
             if(ch==='LOUNGE') document.getElementById('btnLounge').classList.add('active-chan');
         }
 
-        // PTT LOGIC (NOW CALLS INITMIC SAFELY)
         const pttBtn = document.getElementById('pttBtn');
-        
         pttBtn.onmousedown = pttBtn.ontouchstart = async (e) => {
             e.preventDefault(); 
             try {
-                await initMic(); // Ensures mic is ready
+                await initMic(); 
                 if (mediaRecorder.state === 'inactive') {
                     playSound('ptt-on');
                     mediaRecorder.start();
@@ -499,7 +516,6 @@
             } catch(e) {}
         }
 
-        // DATA ACTIONS
         async function createTicket() {
             const desc = document.getElementById('tickDesc').value;
             await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:null, type:'General', priority:'Normal', description:desc }) });
@@ -516,6 +532,7 @@
             const nar = document.getElementById('repNar').value;
             await fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ officer_name:currentUser.full_name, type:'General', location:'HQ', narrative:nar }) });
             alert("Report Submitted");
+            loadStats(currentUser.full_name); // Refresh Stats
         }
 
         function saveProfile() { alert("Saved"); }
@@ -532,7 +549,6 @@
             event.currentTarget.classList.add('active');
             if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open');
             
-            // Reload data on tab switch
             if(id === 'staff') loadStaff();
             if(id === 'tickets') loadTickets();
             if(id === 'clients') loadClients();
