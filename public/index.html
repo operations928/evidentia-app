@@ -45,6 +45,7 @@
         .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
         .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); }
 
+        /* Radio & Chat */
         .chat-log { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
         .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; font-size: 0.9rem; }
         .chat-voice { border-color: var(--orange); cursor: pointer; display: flex; align-items: center; gap: 10px; }
@@ -53,6 +54,15 @@
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
+
+        /* RADIO SPECIFIC STYLES */
+        .chan-btn { flex:1; background:#333; border:1px solid #555; color:#aaa; padding:5px; cursor:pointer; font-weight:bold; font-size:0.7rem; }
+        .chan-btn:hover { background:#444; }
+        .active-chan { background:#00ff00; color:black; border-color:#00ff00; box-shadow:0 0 10px #00ff00; }
+        .locked-chan { background:#300; color:#500; cursor:not-allowed; border-color:#500; }
+        
+        .tactical-ptt { width:100%; height:80px; background:linear-gradient(#333, #111); border:2px solid #555; border-radius:8px; color:#aaa; cursor:pointer; transition:0.1s; }
+        .tactical-ptt:active, .tactical-ptt.transmitting { background:#f59e0b; color:black; border-color:#f59e0b; box-shadow:0 0 15px #f59e0b; transform:scale(0.98); }
     </style>
 </head>
 <body>
@@ -116,54 +126,43 @@
         </div>
 
         <div class="bottom-deck">
-           <div class="radio-silo" style="background:#111; border-right:2px solid #333; display:flex; flex-direction:column; font-family:'Courier New', monospace;">
+            <div class="radio-silo" style="background:#111; border-right:2px solid #333; display:flex; flex-direction:column; font-family:'Courier New', monospace;">
     
-    <div style="background:#000; padding:15px; border-bottom:2px solid #444;">
-        <div style="background:#0f380f; color:#00ff00; padding:10px; border:2px inset #0a2a0a; border-radius:4px; margin-bottom:10px; text-shadow: 0 0 5px #00ff00;">
-            <div style="font-size:0.7rem; opacity:0.8;">CHANNEL</div>
-            <div id="lcdChannel" style="font-size:1.5rem; font-weight:bold;">MAIN</div>
-            <div id="lcdStatus" style="font-size:0.7rem; margin-top:5px;">STANDBY</div>
-        </div>
-        
-        <div style="display:flex; gap:5px;">
-            <button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>
-            <button onclick="changeChannel('TAC-1')" class="chan-btn" id="btnTac1">TAC-1</button>
-            <button onclick="changeChannel('LOUNGE')" class="chan-btn" id="btnLounge">LOUNGE</button>
-        </div>
-    </div>
-
-    <div class="chat-log" id="chatArea" style="background:#1a1a1a; flex:1; padding:10px; font-size:0.8rem; font-family:sans-serif;">
-        </div>
-
-    <div class="ptt-box" style="background:#222; padding:15px; border-top:2px solid #444;">
-        <div style="display:flex; gap:5px; margin-bottom:10px;">
-            <input type="text" id="textInput" style="background:#000; color:#0f0; border:1px solid #444; padding:8px; flex:1;" placeholder="TXT...">
-            <button onclick="sendText()" style="background:#444; color:#fff; border:none; padding:0 15px; cursor:pointer;">SEND</button>
-        </div>
-        
-        <button id="pttBtn" class="tactical-ptt">
-            <div style="font-size:1.2rem;">🎙️ PTT</div>
-            <div style="font-size:0.7rem;">HOLD TO TRANSMIT</div>
-        </button>
-        
-        <div style="margin-top:10px; text-align:center;">
-            <button onclick="unlockAudio()" style="background:transparent; border:1px solid #555; color:#777; font-size:0.6rem; padding:2px 5px; cursor:pointer;">
-                ⚠️ ENABLE AUDIO SYSTEM
-            </button>
-        </div>
-    </div>
-</div>
-
-<style>
-    /* RADIO SPECIFIC STYLES */
-    .chan-btn { flex:1; background:#333; border:1px solid #555; color:#aaa; padding:5px; cursor:pointer; font-weight:bold; font-size:0.7rem; }
-    .chan-btn:hover { background:#444; }
-    .active-chan { background:#00ff00; color:black; border-color:#00ff00; box-shadow:0 0 10px #00ff00; }
-    .locked-chan { background:#300; color:#500; cursor:not-allowed; border-color:#500; }
-    
-    .tactical-ptt { width:100%; height:80px; background:linear-gradient(#333, #111); border:2px solid #555; border-radius:8px; color:#aaa; cursor:pointer; transition:0.1s; }
-    .tactical-ptt:active, .tactical-ptt.transmitting { background:#f59e0b; color:black; border-color:#f59e0b; box-shadow:0 0 15px #f59e0b; transform:scale(0.98); }
-</style>
+                <div style="background:#000; padding:15px; border-bottom:2px solid #444;">
+                    <div style="background:#0f380f; color:#00ff00; padding:10px; border:2px inset #0a2a0a; border-radius:4px; margin-bottom:10px; text-shadow: 0 0 5px #00ff00;">
+                        <div style="font-size:0.7rem; opacity:0.8;">CHANNEL</div>
+                        <div id="lcdChannel" style="font-size:1.5rem; font-weight:bold;">MAIN</div>
+                        <div id="lcdStatus" style="font-size:0.7rem; margin-top:5px;">STANDBY</div>
+                    </div>
+                    
+                    <div style="display:flex; gap:5px;">
+                        <button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>
+                        <button onclick="changeChannel('TAC-1')" class="chan-btn" id="btnTac1">TAC-1</button>
+                        <button onclick="changeChannel('LOUNGE')" class="chan-btn" id="btnLounge">LOUNGE</button>
+                    </div>
+                </div>
+            
+                <div class="chat-log" id="chatArea" style="background:#1a1a1a; flex:1; padding:10px; font-size:0.8rem; font-family:sans-serif;">
+                </div>
+            
+                <div class="ptt-box" style="background:#222; padding:15px; border-top:2px solid #444;">
+                    <div style="display:flex; gap:5px; margin-bottom:10px;">
+                        <input type="text" id="textInput" style="background:#000; color:#0f0; border:1px solid #444; padding:8px; flex:1;" placeholder="TXT...">
+                        <button onclick="sendText()" style="background:#444; color:#fff; border:none; padding:0 15px; cursor:pointer;">SEND</button>
+                    </div>
+                    
+                    <button id="pttBtn" class="tactical-ptt">
+                        <div style="font-size:1.2rem;">🎙️ PTT</div>
+                        <div style="font-size:0.7rem;">HOLD TO TRANSMIT</div>
+                    </button>
+                    
+                    <div style="margin-top:10px; text-align:center;">
+                        <button onclick="unlockAudio()" style="background:transparent; border:1px solid #555; color:#777; font-size:0.6rem; padding:2px 5px; cursor:pointer;">
+                            ⚠️ ENABLE AUDIO SYSTEM
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <div class="workspace">
                 <div id="tab-dashboard" class="tab-content active-tab">
@@ -213,6 +212,11 @@
         const socket = io();
         let currentUser = null;
         let mediaRecorder, audioChunks=[];
+        
+        // --- TACTICAL RADIO LOGIC 2.0 ---
+        let currentChannel = 'MAIN';
+        let isDispatched = false; // Toggle this based on tickets
+        let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         window.onload = async () => {
             const { data: { session } } = await sb.auth.getSession();
@@ -230,7 +234,6 @@
         async function handleLogin() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            // Catch 400 Errors (Invalid Login)
             const { data, error } = await sb.auth.signInWithPassword({ email, password });
             if(error) return alert("Login Failed: " + error.message + " (Check if email is confirmed)");
             document.getElementById('authModal').style.display = 'none';
@@ -259,7 +262,6 @@
                 document.getElementById('commandLinks').style.display = 'block';
             }
 
-            // LOAD DATA (Swallowing errors if backend is still waking up)
             loadConfig().catch(e => console.log("Config not loaded yet"));
             loadRadioHistory();
             
@@ -276,16 +278,14 @@
             const res = await fetch('/api/config/incident_types');
             if(res.ok) {
                 const types = await res.json();
-                // Logic to populate dropdown
                 console.log("Config loaded:", types);
             }
         }
 
-        // --- RADIO (With Safety Catch) ---
+        // --- RADIO (With Safety Catch & New Logic) ---
         function unlockAudio() {
-            const audio = new Audio();
-            audio.play().catch(() => {});
-            alert("Audio Connected.");
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            alert("Audio System Enabled.");
         }
 
         async function loadRadioHistory() {
@@ -296,6 +296,45 @@
             } catch(e) { console.log("Radio history unavailable"); }
         }
 
+        // 1. SOUND GENERATOR (No files needed!)
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'ptt-on') {
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'ptt-off') { // Roger Beep
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            }
+        }
+
+        // 2. CHANNEL SWITCHING
+        function changeChannel(newChan) {
+            if (newChan === 'LOUNGE' && isDispatched) {
+                alert("ACCESS DENIED: You are dispatched to a call.");
+                return;
+            }
+            currentChannel = newChan;
+            socket.emit('join-channel', currentChannel);
+            
+            document.getElementById('lcdChannel').innerText = currentChannel;
+            document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan'));
+            
+            if(newChan === 'MAIN') document.getElementById('btnMain').classList.add('active-chan');
+            if(newChan === 'TAC-1') document.getElementById('btnTac1').classList.add('active-chan');
+            if(newChan === 'LOUNGE') document.getElementById('btnLounge').classList.add('active-chan');
+        }
+
+        // 3. PTT LOGIC
         navigator.mediaDevices.getUserMedia({audio:true}).then(s => {
             mediaRecorder=new MediaRecorder(s);
             mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
@@ -303,31 +342,43 @@
                 const reader=new FileReader();
                 reader.readAsDataURL(new Blob(audioChunks));
                 reader.onloadend=()=>{ 
-                    socket.emit('radio-voice',{audio:reader.result, name:currentUser.full_name, lat:0, lng:0}); 
+                    socket.emit('radio-voice',{audio:reader.result, name:currentUser.full_name, channel: currentChannel, lat:0, lng:0}); 
                     addLog("Me","Audio",true,reader.result); 
                 };
                 audioChunks=[];
             };
         }).catch(e=>console.log("Mic blocked"));
 
-        const btn=document.getElementById('pttBtn');
-        btn.onmousedown=btn.ontouchstart=()=>{if(mediaRecorder?.state==='inactive'){mediaRecorder.start();btn.classList.add('active')}};
-        btn.onmouseup=btn.ontouchend=()=>{if(mediaRecorder?.state==='recording'){mediaRecorder.stop();btn.classList.remove('active')}};
+        const pttBtn = document.getElementById('pttBtn');
+
+        pttBtn.onmousedown = pttBtn.ontouchstart = () => {
+            if (mediaRecorder?.state === 'inactive') {
+                playSound('ptt-on');
+                mediaRecorder.start();
+                pttBtn.classList.add('transmitting');
+                document.getElementById('lcdStatus').innerText = "TRANSMITTING...";
+                document.getElementById('lcdStatus').style.color = "red";
+            }
+        };
+
+        pttBtn.onmouseup = pttBtn.ontouchend = () => {
+            if (mediaRecorder?.state === 'recording') {
+                mediaRecorder.stop();
+                playSound('ptt-off'); // Roger beep
+                pttBtn.classList.remove('transmitting');
+                document.getElementById('lcdStatus').innerText = "STANDBY";
+                document.getElementById('lcdStatus').style.color = "#00ff00";
+            }
+        };
         
-        // SAFE PLAYBACK
-      // --- CRASH-PROOF AUDIO PLAYER ---
+        // 4. HANDLE INCOMING
         socket.on('radio-playback', d => {
-            // 1. Add visual log first
             addLog(d.name, "Audio", true, d.audio);
-            
-            // 2. Try to play, but ignore errors if file is bad
             if(d.audio && d.audio.length > 50) {
-                try {
-                    let snd = new Audio(d.audio);
-                    snd.play().catch(e => console.warn("Audio auto-play blocked (harmless):", e));
-                } catch (err) {
-                    console.error("Bad audio file skipped:", err);
-                }
+                playSound('ptt-on'); // Squelch open
+                let snd = new Audio(d.audio);
+                snd.onended = () => playSound('ptt-off'); // Squelch close
+                snd.play().catch(e => console.warn("Audio permission needed"));
             }
         });
 
@@ -339,14 +390,13 @@
             if(v) {
                 d.className += ' chat-voice';
                 d.innerHTML = `<span>🔊</span> <b>${n}</b>`;
-                // 3. Click-to-play with safety catch
                 if(s && s.length > 50) {
                     d.onclick = () => {
                         try { new Audio(s).play(); } 
                         catch(e) { alert("Audio corrupted/empty"); }
                     };
                 } else {
-                    d.style.opacity = "0.5"; // Dim invalid audio
+                    d.style.opacity = "0.5"; 
                     d.innerHTML += " (Error)";
                 }
             } else {
@@ -357,8 +407,20 @@
 
         function sendText() {
             const msg = document.getElementById('textInput').value;
-            if(currentUser && msg) socket.emit('radio-text', {name:currentUser.full_name, msg, lat:0, lng:0});
+            if(currentUser && msg) socket.emit('radio-text', {name:currentUser.full_name, msg, channel: currentChannel, lat:0, lng:0});
             document.getElementById('textInput').value='';
+        }
+
+        // 5. UPDATE LOCK STATUS (Call this when a ticket is assigned)
+        function updateDispatchStatus(status) {
+            isDispatched = (status === 'Dispatched');
+            const loungeBtn = document.getElementById('btnLounge');
+            if(isDispatched) {
+                loungeBtn.classList.add('locked-chan');
+                if(currentChannel === 'LOUNGE') changeChannel('MAIN'); // Kick them out
+            } else {
+                loungeBtn.classList.remove('locked-chan');
+            }
         }
 
         // MOCK FUNCTIONS for buttons (Ensure they exist to stop errors)
@@ -381,96 +443,5 @@
             if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open');
         }
     </script>
-    // --- TACTICAL RADIO LOGIC 2.0 ---
-let currentChannel = 'MAIN';
-let isDispatched = false; // Toggle this based on tickets
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-// 1. SOUND GENERATOR (No files needed!)
-function playSound(type) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    if (type === 'ptt-on') {
-        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.1);
-    } else if (type === 'ptt-off') { // Roger Beep
-        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.15);
-    }
-}
-
-// 2. CHANNEL SWITCHING
-function changeChannel(newChan) {
-    // Lounge Lockout Logic
-    if (newChan === 'LOUNGE' && isDispatched) {
-        alert("ACCESS DENIED: You are dispatched to a call.");
-        return;
-    }
-
-    currentChannel = newChan;
-    socket.emit('join-channel', currentChannel);
-    
-    // UI Update
-    document.getElementById('lcdChannel').innerText = currentChannel;
-    document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan'));
-    
-    if(newChan === 'MAIN') document.getElementById('btnMain').classList.add('active-chan');
-    if(newChan === 'TAC-1') document.getElementById('btnTac1').classList.add('active-chan');
-    if(newChan === 'LOUNGE') document.getElementById('btnLounge').classList.add('active-chan');
-}
-
-// 3. PTT LOGIC
-const pttBtn = document.getElementById('pttBtn');
-
-pttBtn.onmousedown = pttBtn.ontouchstart = () => {
-    if (mediaRecorder?.state === 'inactive') {
-        playSound('ptt-on');
-        mediaRecorder.start();
-        pttBtn.classList.add('transmitting');
-        document.getElementById('lcdStatus').innerText = "TRANSMITTING...";
-        document.getElementById('lcdStatus').style.color = "red";
-    }
-};
-
-pttBtn.onmouseup = pttBtn.ontouchend = () => {
-    if (mediaRecorder?.state === 'recording') {
-        mediaRecorder.stop();
-        playSound('ptt-off'); // Roger beep
-        pttBtn.classList.remove('transmitting');
-        document.getElementById('lcdStatus').innerText = "STANDBY";
-        document.getElementById('lcdStatus').style.color = "#00ff00";
-    }
-};
-
-// 4. HANDLE INCOMING
-socket.on('radio-playback', d => {
-    addLog(d.name, "Audio", true, d.audio);
-    if(d.audio && d.audio.length > 50) {
-        playSound('ptt-on'); // Squelch open
-        let snd = new Audio(d.audio);
-        snd.onended = () => playSound('ptt-off'); // Squelch close
-        snd.play().catch(e => console.log("Audio permission needed"));
-    }
-});
-
-// 5. UPDATE LOCK STATUS (Call this when a ticket is assigned)
-function updateDispatchStatus(status) {
-    isDispatched = (status === 'Dispatched');
-    const loungeBtn = document.getElementById('btnLounge');
-    if(isDispatched) {
-        loungeBtn.classList.add('locked-chan');
-        if(currentChannel === 'LOUNGE') changeChannel('MAIN'); // Kick them out
-    } else {
-        loungeBtn.classList.remove('locked-chan');
-    }
-}
 </body>
 </html>
