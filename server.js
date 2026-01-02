@@ -4,6 +4,9 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 
 const app = express();
+
+// Hostinger (and most VPS) will assign a port via process.env.PORT.
+// If not found, it defaults to 3000.
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -19,6 +22,7 @@ app.get('/api/config', (req, res) => {
 });
 
 // 2. Endpoint for Gemini AI (Chatbot)
+// Note: Ensure GEMINI_API_KEY is set in your Hostinger Environment Variables
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/api/chat', async (req, res) => {
@@ -39,12 +43,14 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// 3. Serve the Dashboard
+// 3. Serve the Dashboard (Frontend)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start Server
+// Start Server - SIMPLIFIED FOR HOSTINGER
+// We removed the "module.exports" and the "if" check because Hostinger
+// always wants this file to start the server immediately.
 app.listen(PORT, () => {
-    console.log(`✅ Evidentia App is running at http://localhost:${PORT}`);
+    console.log(`✅ Evidentia App is running on port ${PORT}`);
 });
