@@ -265,11 +265,15 @@
             loadConfig().catch(e => console.log("Config not loaded yet"));
             loadRadioHistory();
             
+           // 1. Force Join MAIN Channel on Login
+            currentChannel = 'MAIN';
+            socket.emit('join-channel', 'MAIN');
+
+            // 2. Start Tracking
             if(navigator.geolocation) navigator.geolocation.watchPosition(pos => {
                 socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat: pos.coords.latitude, lng: pos.coords.longitude });
                 map.setView([pos.coords.latitude, pos.coords.longitude], 15);
             });
-        }
         
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
