@@ -15,35 +15,37 @@ app.get('/api/config', (req, res) => {
     res.json({ status: "Online", mode: "Hub" });
 });
 
-// 2. Chat Endpoint (Safe Mode)
-// This setup uses 'gemini-pro' which is the standard model.
+// 2. Chat Endpoint (Using the specific legacy model name)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/api/chat', async (req, res) => {
     try {
-        // FIX: Using 'gemini-pro' to avoid "Not Found" errors
-        const model = genAI.getGenerativeModel({ model: "gemini-pro"});
-
-        const prompt = `You are a security assistant. Concise answers only. User: ${req.body.message}`;
+        // FIX: Use 'gemini-1.0-pro' which is the specific version for the v1beta API
+        const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro"});
         
+        const prompt = `You are a security operations AI. Keep answers concise. User: ${req.body.message}`;
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
-
+        
         res.json({ reply: text });
-
+        
     } catch (error) {
         console.error("AI Error:", error.message);
-        
-        // CRITICAL FIX: Instead of crashing (500), send the error to the chat
-        // This keeps your Hub alive even if Google fails.
-        res.json({ 
-            reply: "⚠️ AI Connection Error: " + error.message 
-        });
+        res.json({ reply: "⚠️ AI Error: " + error.message });
     }
 });
 
-// 3. Serve the Visual Hub
+// 3. Mock Data for the Hub (Live Incidents)
+app.get('/api/incidents', (req, res) => {
+    res.json([
+        { id: 101, type: "Unauthorized Access", location: "Server-DB-04", status: "Critical" },
+        { id: 102, type: "Malware Detected", location: "Workstation-22", status: "Resolved" },
+        { id: 103, type: "Port Scan", location: "Gateway-North", status: "Monitoring" }
+    ]);
+});
+
+// 4. Serve the Hub UI
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
