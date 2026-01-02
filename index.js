@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const { GoogleGenAI } = require("@google/genai");
 const { createClient } = require("@supabase/supabase-js");
 require('dotenv').config();
 
@@ -10,63 +9,51 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static('public'));
 app.use(express.json());
 
-// Initialize Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Initialize AI
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// 1. Config
+app.get('/api/config', (req, res) => res.json({ status: "Online", mode: "CAD" }));
 
-// 1. Config Endpoint
-app.get('/api/config', (req, res) => {
-    res.json({ status: "Online", mode: "Hub" });
+// 2. GET MAP DATA (Officers & Active Ops)
+app.get('/api/map-data', async (req, res) => {
+    const { data: officers } = await supabase.from('officers').select('*');
+    const { data: ops } = await supabase.from('operations').select('*').eq('status', 'Active');
+    res.json({ officers, ops });
 });
 
-// 2. Chat Endpoint
-app.post('/api/chat', async (req, res) => {
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash-exp",
-            contents: `You are a security operations AI for Evidentia. Concise answers. User: ${req.body.message}`
-        });
-        res.json({ reply: response.text });
-    } catch (error) {
-        console.error("AI Error:", error.message);
-        res.json({ reply: "⚠️ AI Offline: " + error.message });
+// 3. INTERNAL RADIO (Send & Receive)
+app.get('/api/radio', async (req, res) => {
+    const { data } = await supabase.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(50);
+    res.json(data);
+});
+app.post('/api/radio', async (req, res) => {
+    const { sender, message, channel } = req.body;
+    const { error } = await supabase.from('radio_logs').insert([{ sender, message, channel }]);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ status: 'sent' });
+});
+
+// 4. OPERATIONS (Submit Report)
+app.post('/api/operations', async (req, res) => {
+    const { type, subtype, location, details, officer_name } = req.body;
+    const { error } = await supabase.from('operations').insert([{ type, subtype, location, details, officer_name }]);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ status: 'reported' });
+});
+
+// 5. TIMESHEETS (Clock In/Out)
+app.post('/api/clock', async (req, res) => {
+    const { action, officer_name } = req.body; // action: 'in' or 'out'
+    if (action === 'in') {
+        await supabase.from('timesheets').insert([{ officer_name, clock_in: new Date() }]);
+    } else {
+        // Simple logic: update last open record
+        await supabase.from('timesheets').update({ clock_out: new Date() })
+            .eq('officer_name', officer_name).is('clock_out', null);
     }
+    res.json({ status: 'success' });
 });
 
-// 3. GET Incidents (Real Data from Supabase)
-app.get('/api/incidents', async (req, res) => {
-    const { data, error } = await supabase
-        .from('incidents')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
-});
-
-// 4. POST New Incident (Report from Dashboard)
-app.post('/api/incidents', async (req, res) => {
-    const { type, location, status } = req.body;
-    const { data, error } = await supabase
-        .from('incidents')
-        .insert([{ type, location, status }])
-        .select();
-
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
-});
-
-// Serve UI
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`✅ Hub Active on port ${PORT}`);
-    });
-}
-module.exports = app;
+app.listen(PORT, () => console.log(`✅ Evidentia CAD Active on port ${PORT}`));
