@@ -25,37 +25,53 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 let activeUnits = {}; 
 
 // --- SOCKET.IO ---
+// --- SOCKET.IO RADIO SYSTEM 2.0 ---
 io.on('connection', (socket) => {
+    
+    // 1. JOIN CHANNEL
+    socket.on('join-channel', (channel) => {
+        // Leave previous channels first to prevent echo
+        socket.rooms.forEach(room => { if(room !== socket.id) socket.leave(room); });
+        
+        socket.join(channel);
+        socket.emit('system-msg', `Switched to ${channel}`);
+    });
+
+    // 2. RADIO VOICE (Channel Specific)
+    socket.on('radio-voice', async (data) => {
+        // Broadcast ONLY to people in the same channel
+        socket.to(data.channel).emit('radio-playback', data); 
+        
+        // Log to DB
+        await supabase.from('radio_logs').insert([{ 
+            sender: data.name, 
+            channel: data.channel,
+            message: '[AUDIO TRANSMISSION]', 
+            is_voice: true, 
+            audio_data: data.audio
+        }]);
+    });
+    
+    // 3. RADIO TEXT (Channel Specific)
+    socket.on('radio-text', async (data) => {
+        io.to(data.channel).emit('radio-text-broadcast', data);
+        await supabase.from('radio_logs').insert([{ 
+            sender: data.name, 
+            channel: data.channel,
+            message: data.msg 
+        }]);
+    });
+
+    // Keep existing Login/Map logic...
     socket.on('unit-login', (data) => {
         activeUnits[socket.id] = { ...data, socketId: socket.id };
         io.emit('map-update', Object.values(activeUnits));
-    });
-    socket.on('location-update', (data) => {
-        if (activeUnits[socket.id]) {
-            Object.assign(activeUnits[socket.id], data);
-            io.emit('map-update', Object.values(activeUnits));
-        }
-    });
-    socket.on('radio-voice', async (data) => {
-        socket.broadcast.emit('radio-playback', data); 
-        await supabase.from('radio_logs').insert([{ 
-            sender: data.name, message: '[AUDIO]', is_voice: true, 
-            audio_data: data.audio, lat: data.lat, lng: data.lng 
-        }]);
-    });
-    socket.on('radio-text', async (data) => {
-        io.emit('radio-text-broadcast', data);
-        await supabase.from('radio_logs').insert([{ 
-            sender: data.name, message: data.msg, is_voice: false, 
-            lat: data.lat, lng: data.lng 
-        }]);
     });
     socket.on('disconnect', () => {
         delete activeUnits[socket.id];
         io.emit('map-update', Object.values(activeUnits));
     });
 });
-
 // --- API ROUTES (Consolidated) ---
 
 // 1. DATA & CONFIG
@@ -136,3 +152,4 @@ app.post('/api/courses', async (req, res) => {
 
 app.get('/', rootLimiter, (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 server.listen(PORT, () => console.log(`✅ Evidentia MASTER Backend Active on port ${PORT}`));
+
