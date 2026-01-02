@@ -3,315 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evidentia Hub</title>
+    <title>Evidentia CAD</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <style>
-        :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --accent-hover: #2563eb; --red: #ef4444; --green: #10b981; }
+        :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f59e0b; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
         
         /* Sidebar */
-        .sidebar { width: 260px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid #334155; }
-        .logo-area { padding: 25px; border-bottom: 1px solid #334155; }
-        .logo { font-size: 1.4rem; font-weight: bold; color: var(--accent); letter-spacing: 1px; }
+        .sidebar { width: 220px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 15px; }
+        .logo { font-size: 1.2rem; font-weight: bold; color: var(--accent); margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
         
-        .nav-menu { flex: 1; padding: 20px 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
-        .nav-category { font-size: 0.75rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 15px; font-weight: bold; letter-spacing: 0.5px; }
-        .nav-btn { 
-            background: transparent; border: none; color: #94a3b8; padding: 10px 15px; 
-            text-align: left; cursor: pointer; border-radius: 8px; font-size: 0.9rem; font-weight: 500;
-            display: flex; align-items: center; gap: 10px; transition: all 0.2s;
-        }
-        .nav-btn:hover { background: #334155; color: white; }
-        .nav-btn.active { background: var(--accent); color: white; }
+        /* Time Clock Section */
+        .clock-section { background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155; text-align: center; }
+        .clock-btn { width: 100%; padding: 10px; margin-top: 5px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .btn-in { background: var(--green); color: white; }
+        .btn-out { background: var(--red); color: white; }
 
-        /* Widgets (New) */
-        .widget-box { padding: 15px; border-top: 1px solid #334155; background: #162032; }
-        .clock-time { font-size: 1.5rem; font-weight: bold; font-family: monospace; letter-spacing: 1px; }
-        .clock-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px; }
-        .weather-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-        .temp { font-size: 1.2rem; font-weight: bold; color: #e2e8f0; }
+        .menu-label { font-size: 0.75rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 0; font-weight: bold; }
+        .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 8px 0; text-align: left; cursor: pointer; display: block; width: 100%; }
+        .nav-btn:hover { color: white; }
 
-        /* Main Content */
-        .main { flex: 1; display: flex; flex-direction: column; position: relative; }
-        .header { padding: 15px 25px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
-        .badge { background: #064e3b; color: #34d399; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
-
-        /* Dashboard Grid */
-        .view-section { display: none; height: 100%; flex-direction: column; padding: 20px; box-sizing: border-box; }
-        .view-section.active-view { display: flex; }
-        .grid { display: flex; flex: 1; gap: 20px; overflow: hidden; height: 100%; }
-        .left-col { flex: 3; display: flex; flex-direction: column; gap: 20px; overflow: hidden; }
-        .chat-panel { flex: 2; background: var(--panel); border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #334155; overflow: hidden; }
+        /* Main Grid */
+        .main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
         
-        /* Incident Panel & Table */
-        .incident-panel { flex: 1; background: var(--panel); border-radius: 12px; padding: 20px; overflow-y: auto; border: 1px solid #334155; position: relative; }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .action-btn { background: var(--red); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s; }
-        .action-btn:hover { background: #dc2626; }
-        
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; color: #94a3b8; font-size: 0.9rem; padding: 10px 0; border-bottom: 1px solid #475569; }
-        td { padding: 12px 0; border-bottom: 1px solid #334155; font-size: 0.95rem; }
+        /* TOP: MAP AREA (50%) */
+        .map-container { flex: 1; position: relative; border-bottom: 2px solid #334155; }
+        #map { height: 100%; width: 100%; background: #0f172a; }
+        .map-overlay { position: absolute; top: 10px; right: 10px; z-index: 1000; background: rgba(15, 23, 42, 0.9); padding: 10px; border-radius: 5px; border: 1px solid #334155; font-size: 0.8rem; }
 
-        /* Launch Pad / Chat / Email (Existing) */
-        .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-        .msg { padding: 12px 16px; border-radius: 8px; max-width: 85%; font-size: 0.95rem; }
-        .msg.user { align-self: flex-end; background: var(--accent); color: white; }
-        .msg.ai { align-self: flex-start; background: #334155; }
-        .input-area { padding: 15px; background: var(--bg); display: flex; gap: 10px; border-top: 1px solid #334155; }
-        input { flex: 1; background: #334155; border: 1px solid #475569; padding: 12px; border-radius: 6px; color: white; }
+        /* BOTTOM: SPLIT VIEW (50%) */
+        .bottom-panel { flex: 1; display: flex; overflow: hidden; }
         
-        .launch-pad { flex: 1; background: var(--panel); border-radius: 12px; border: 1px solid #334155; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 20px; }
-        .lp-icon { font-size: 4rem; margin-bottom: 10px; }
-        .lp-title { font-size: 1.5rem; font-weight: bold; }
-        .lp-desc { color: #94a3b8; max-width: 400px; line-height: 1.5; }
-        .lp-btn { background: var(--accent); color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 10px; transition: background 0.2s; }
+        /* LEFT: RADIO DISPATCH */
+        .radio-panel { flex: 1; border-right: 1px solid #334155; display: flex; flex-direction: column; background: #0b1120; }
+        .radio-header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; font-weight: bold; display: flex; justify-content: space-between; }
+        .radio-logs { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 0.9rem; }
+        .radio-msg { padding: 5px 10px; border-left: 3px solid var(--accent); background: rgba(59, 130, 246, 0.1); }
+        .radio-controls { padding: 10px; background: var(--panel); display: flex; gap: 10px; }
+        .ppt-btn { background: var(--orange); color: black; border: none; font-weight: bold; padding: 0 15px; border-radius: 4px; cursor: pointer; }
         
-        /* Modal Popup */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal { background: var(--panel); padding: 25px; border-radius: 12px; width: 400px; border: 1px solid #475569; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        .modal h3 { margin-top: 0; color: var(--text); }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; color: #94a3b8; margin-bottom: 5px; font-size: 0.9rem; }
-        .form-control { width: 100%; background: #0f172a; border: 1px solid #334155; padding: 10px; color: white; border-radius: 6px; box-sizing: border-box; }
-        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-        .btn-cancel { background: transparent; border: 1px solid #475569; color: #94a3b8; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
-        .btn-submit { background: var(--red); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        /* RIGHT: OPERATIONS & REPORTING */
+        .ops-panel { flex: 1; padding: 20px; overflow-y: auto; background: var(--bg); }
+        .ops-header { font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: var(--text); border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 5px; }
+        .form-control { width: 100%; background: var(--panel); border: 1px solid #334155; color: white; padding: 8px; border-radius: 4px; box-sizing: border-box; }
+        
+        .submit-btn { width: 100%; background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .submit-btn:hover { background: var(--accent-hover); }
 
-        /* Email Layout */
-        .email-layout { display: flex; height: 100%; gap: 20px; }
-        .email-settings { width: 300px; background: var(--panel); padding: 25px; border-radius: 12px; border: 1px solid #334155; }
-        .setting-group { margin-bottom: 25px; }
-        .setting-label { color: var(--accent); font-weight: bold; margin-bottom: 8px; display: block; }
-        .setting-val { color: #e2e8f0; font-family: monospace; background: #0f172a; padding: 8px; border-radius: 4px; display: block; margin-bottom: 4px; }
+        /* Status colors */
+        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .dot-green { background: var(--green); }
+        .dot-red { background: var(--red); }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <div class="logo-area">
-            <div class="logo">🛡️ EVIDENTIA</div>
-            <div style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">HUB OS v3.0</div>
-        </div>
+        <div class="logo">🛡️ EVIDENTIA CAD</div>
         
-        <div class="nav-menu">
-            <div class="nav-category">Main</div>
-            <button class="nav-btn active" onclick="switchTab('dashboard')">
-                <span class="nav-icon">📊</span> Dashboard
-            </button>
-            <button class="nav-btn" onclick="switchTab('email')">
-                <span class="nav-icon">📧</span> Mail System
-            </button>
-
-            <div class="nav-category">Operations</div>
-            <button class="nav-btn" onclick="switchTab('connecteam')">
-                <span class="nav-icon">📱</span> Connecteam
-            </button>
-            <button class="nav-btn" onclick="switchTab('navdrone')">
-                <span class="nav-icon">🚁</span> NavDrone
-            </button>
-            <button class="nav-btn" onclick="switchTab('zello')">
-                <span class="nav-icon">📻</span> Zello
-            </button>
-
-            <div class="nav-category">Admin</div>
-            <button class="nav-btn" onclick="switchTab('quickbooks')">
-                <span class="nav-icon">💰</span> QB Workforce
-            </button>
+        <div class="clock-section">
+            <div style="font-size:0.8rem; color:#94a3b8;">OFFICER TIME CLOCK</div>
+            <button class="clock-btn btn-in" onclick="clockAction('in')">CLOCK IN</button>
+            <button class="clock-btn btn-out" onclick="clockAction('out')">CLOCK OUT</button>
+            <div id="clock-status" style="margin-top:5px; font-size:0.8rem; color:white;">Status: Off Duty</div>
         </div>
 
-        <div class="widget-box">
-             <div class="clock-label">Local Time</div>
-             <div class="clock-time" id="clock-local">--:--</div>
-             
-             <div class="clock-label" style="margin-top:10px;">Zulu (UTC)</div>
-             <div class="clock-time" id="clock-utc" style="color:#94a3b8; font-size:1.1rem;">--:--</div>
-
-             <div style="border-top:1px solid #334155; margin-top:10px; padding-top:10px;">
-                <div class="clock-label">Conditions (HQ)</div>
-                <div class="weather-row">
-                    <span id="weather-desc">Loading...</span>
-                    <span class="temp" id="weather-temp">--°C</span>
-                </div>
-             </div>
-        </div>
+        <div class="menu-label">System</div>
+        <button class="nav-btn">📊 Dashboard Stats</button>
+        <button class="nav-btn">📅 Shift Schedule</button>
+        <button class="nav-btn">👥 Team (Online)</button>
+        
+        <div class="menu-label">Training</div>
+        <button class="nav-btn">🎓 Online Modules</button>
+        <button class="nav-btn">📘 Practical Guides</button>
     </div>
 
     <div class="main">
-        <div class="header">
-            <h3 id="pageTitle" style="margin:0">Command Center</h3>
-            <div class="badge">● Secure Connection</div>
+        <div class="map-container">
+            <div class="map-overlay">
+                <div><span class="status-dot dot-green"></span> 2 Units Online</div>
+                <div><span class="status-dot dot-red"></span> 1 Active Alarm</div>
+            </div>
+            <div id="map"></div>
         </div>
 
-        <div id="view-dashboard" class="view-section active-view">
-            <div class="grid">
-                <div class="left-col">
-                    <div class="incident-panel">
-                        <div class="panel-header">
-                            <h3 style="margin:0">🚨 Live Incidents</h3>
-                            <button class="action-btn" onclick="openModal()">+ Report Incident</button>
-                        </div>
-                        <table id="incidentTable">
-                            <thead><tr><th>Type</th><th>Location</th><th>Status</th></tr></thead>
-                            <tbody id="incidentBody"><tr><td colspan="3">Loading...</td></tr></tbody>
-                        </table>
+        <div class="bottom-panel">
+            
+            <div class="radio-panel">
+                <div class="radio-header">
+                    <span>📡 RADIO DISPATCH</span>
+                    <span style="color:var(--green); font-size:0.8rem;">● LIVE</span>
+                </div>
+                <div class="radio-logs" id="radioLogs">
+                    <div class="radio-msg"><span style="color:#94a3b8;">14:02 [DISPATCH]:</span> All units, check in for shift briefing.</div>
+                </div>
+                <div class="radio-controls">
+                    <button class="ppt-btn" onclick="sendRadio('10-4 Acknowledged')">10-4</button>
+                    <input type="text" id="radioInput" class="form-control" placeholder="Type message..." onkeypress="handleRadioKey(event)">
+                    <button style="background:var(--accent); color:white; border:none; padding:0 15px; border-radius:4px;" onclick="sendRadio()">SEND</button>
+                </div>
+            </div>
+
+            <div class="ops-panel">
+                <div class="ops-header">📝 Field Reporting & Ops</div>
+                
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label>Operation Category</label>
+                    <select id="opCategory" class="form-control" onchange="updateSubtypes()">
+                        <option value="General">General Patrol</option>
+                        <option value="Alarm">Alarm Response</option>
+                        <option value="Escort">CPO / Escort</option>
+                        <option value="Enhanced">Enhanced Ops (LPR/Drone)</option>
+                    </select>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Specific Type</label>
+                        <select id="opSubtype" class="form-control">
+                            <option>Site Patrol</option>
+                            <option>Vagrancy Removal</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Location / Site</label>
+                        <input type="text" id="opLoc" class="form-control" placeholder="Address or Site ID">
                     </div>
                 </div>
-                <div class="chat-panel">
-                    <div class="messages" id="messages">
-                        <div class="msg ai">Evidentia Assistant online.</div>
+
+                <div class="form-group">
+                    <label>Situation Report / Details</label>
+                    <textarea id="opDetails" class="form-control" rows="3" placeholder="Describe situation, ground conditions, or alarm status..."></textarea>
+                </div>
+
+                <button class="submit-btn" onclick="submitOp()">SUBMIT REPORT TO TOC</button>
+                
+                <div style="margin-top:20px; border-top:1px solid #334155; padding-top:10px;">
+                    <label style="color:#94a3b8; font-size:0.85rem;">Recent Tasks</label>
+                    <div style="background:#0f172a; padding:10px; border-radius:4px; margin-top:5px; font-size:0.9rem;">
+                        <div style="color:var(--green);">✔ [Alarm] Residential - Resolved</div>
+                        <div style="color:var(--orange);">● [Escort] ATM 104 - In Progress</div>
                     </div>
-                    <div class="input-area">
-                        <input type="text" id="userInput" placeholder="Ask AI..." onkeypress="handleKey(event)">
-                        <button style="background:var(--accent); color:white; border:none; padding:0 20px; border-radius:6px; cursor:pointer;" onclick="sendMessage()">Send</button>
-                    </div>
                 </div>
             </div>
-        </div>
 
-        <div id="view-email" class="view-section">
-            <div class="email-layout">
-                <div class="launch-pad">
-                    <div class="lp-icon">📧</div>
-                    <div class="lp-title">Secure Webmail</div>
-                    <a href="https://mail.hostinger.com" target="_blank" class="lp-btn">Launch Webmail ↗</a>
-                </div>
-                <div class="email-settings">
-                    <h4 style="margin-top:0; border-bottom:1px solid #475569; padding-bottom:10px;">Server Protocols</h4>
-                    <div class="setting-group"><span class="setting-label">Incoming (IMAP)</span><div class="setting-val">imap.hostinger.com</div><div class="setting-val">Port: 993 (SSL)</div></div>
-                    <div class="setting-group"><span class="setting-label">Outgoing (SMTP)</span><div class="setting-val">smtp.hostinger.com</div><div class="setting-val">Port: 465 (SSL)</div></div>
-                </div>
-            </div>
-        </div>
-        <div id="view-connecteam" class="view-section"><div class="launch-pad"><div class="lp-icon">📱</div><div class="lp-title">Connecteam Operations</div><a href="https://app.connecteam.com" target="_blank" class="lp-btn">Open Connecteam ↗</a></div></div>
-        <div id="view-navdrone" class="view-section"><div class="launch-pad"><div class="lp-icon">🚁</div><div class="lp-title">NavDrone Airspace</div><a href="https://map.navdrone.ca" target="_blank" class="lp-btn">Open Flight Map ↗</a></div></div>
-        <div id="view-zello" class="view-section"><div class="launch-pad"><div class="lp-icon">📻</div><div class="lp-title">Zello Dispatch</div><a href="https://zello.com/login" target="_blank" class="lp-btn">Open Dispatch Console ↗</a></div></div>
-        <div id="view-quickbooks" class="view-section"><div class="launch-pad"><div class="lp-icon">💰</div><div class="lp-title">QuickBooks Workforce</div><a href="https://workforce.intuit.com/app/payroll/employee-portal/login" target="_blank" class="lp-btn">Open Workforce Portal ↗</a></div></div>
-
-    </div>
-
-    <div class="modal-overlay" id="incidentModal">
-        <div class="modal">
-            <h3>Report Security Incident</h3>
-            <div class="form-group">
-                <label>Incident Type</label>
-                <select id="incType" class="form-control">
-                    <option>Unauthorized Access</option>
-                    <option>Suspicious Vehicle</option>
-                    <option>Safety Hazard</option>
-                    <option>Equipment Failure</option>
-                    <option>Other</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Location</label>
-                <input type="text" id="incLoc" class="form-control" placeholder="e.g. North Gate">
-            </div>
-            <div class="form-group">
-                <label>Status</label>
-                <select id="incStatus" class="form-control">
-                    <option value="Critical">Critical</option>
-                    <option value="Monitoring">Monitoring</option>
-                    <option value="Resolved">Resolved</option>
-                </select>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="btn-submit" onclick="submitIncident()">Submit Report</button>
-            </div>
         </div>
     </div>
 
     <script>
-        // --- 1. TABS ---
-        function switchTab(tabName) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
-            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(`view-${tabName}`).classList.add('active-view');
-            
-            const btnText = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-            document.getElementById('pageTitle').innerText = tabName === 'dashboard' ? 'Command Center' : btnText;
-            event.currentTarget.classList.add('active');
-        }
+        // --- 1. MAP INIT (Leaflet) ---
+        // Defaulting to Ottawa coordinates (Change to your main city)
+        const map = L.map('map').setView([45.4215, -75.6972], 13);
+        
+        // Dark Mode Map Tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
 
-        // --- 2. DATA LOADING (REAL) ---
-        function loadIncidents() {
-            fetch('/api/incidents')
-            .then(res => res.json())
-            .then(data => {
-                const tbody = document.getElementById('incidentBody');
-                tbody.innerHTML = ''; 
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#94a3b8;">No active alerts.</td></tr>';
-                    return;
-                }
-                data.forEach(inc => {
-                    const color = inc.status === 'Critical' ? '#ef4444' : (inc.status === 'Resolved' ? '#10b981' : '#f59e0b');
-                    tbody.innerHTML += `<tr><td><b>${inc.type}</b></td><td>${inc.location}</td><td style="color:${color}">${inc.status}</td></tr>`;
-                });
+        // Fetch Live Map Data
+        async function updateMap() {
+            const res = await fetch('/api/map-data');
+            const data = await res.json();
+            
+            // Clear existing markers (pseudo-code logic for simplicity)
+            // In a full app, you'd track marker IDs to update positions smoothly
+            data.officers.forEach(off => {
+                L.marker([off.lat, off.lng])
+                 .addTo(map)
+                 .bindPopup(`<b>${off.name}</b><br>Status: ${off.status}`);
             });
         }
-        loadIncidents(); // Load on start
+        updateMap(); // Load immediately
 
-        // --- 3. SUBMIT INCIDENT ---
-        function openModal() { document.getElementById('incidentModal').style.display = 'flex'; }
-        function closeModal() { document.getElementById('incidentModal').style.display = 'none'; }
-        
-        async function submitIncident() {
-            const type = document.getElementById('incType').value;
-            const loc = document.getElementById('incLoc').value;
-            const status = document.getElementById('incStatus').value;
+        // --- 2. DYNAMIC DROPDOWNS ---
+        function updateSubtypes() {
+            const cat = document.getElementById('opCategory').value;
+            const sub = document.getElementById('opSubtype');
+            sub.innerHTML = ''; // Clear
+            
+            let opts = [];
+            if(cat === 'Alarm') opts = ['Residential', 'Bank', 'Commercial'];
+            else if(cat === 'Escort') opts = ['ATM Escort', 'Bodyguarding', 'V.I.P Transport'];
+            else if(cat === 'Enhanced') opts = ['LPR Patrol', 'Drone Surveillance', 'Static Guarding'];
+            else opts = ['Site Patrol', 'Vagrancy Removal', 'Full Inspection (Int/Ext)'];
+            
+            opts.forEach(o => {
+                const el = document.createElement('option');
+                el.innerText = o;
+                sub.appendChild(el);
+            });
+        }
 
-            if(!loc) return alert("Location is required");
+        // --- 3. RADIO LOGIC ---
+        async function loadRadio() {
+            const res = await fetch('/api/radio');
+            const logs = await res.json();
+            const container = document.getElementById('radioLogs');
+            container.innerHTML = '';
+            logs.reverse().forEach(log => {
+                const div = document.createElement('div');
+                div.className = 'radio-msg';
+                const time = new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                div.innerHTML = `<span style="color:#94a3b8;">${time} [${log.sender || 'UNIT'}]:</span> ${log.message}`;
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        }
+        setInterval(loadRadio, 3000); // Poll every 3 seconds for "Live" feel
 
-            await fetch('/api/incidents', {
+        async function sendRadio(presetMsg) {
+            const input = document.getElementById('radioInput');
+            const msg = presetMsg || input.value;
+            if(!msg) return;
+
+            await fetch('/api/radio', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ type, location: loc, status })
+                body: JSON.stringify({ sender: 'OFFICER', message: msg, channel: 'Dispatch' })
             });
-            
-            closeModal();
-            loadIncidents(); // Refresh table immediately
-        }
-
-        // --- 4. CLOCK & WEATHER ---
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('clock-local').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            document.getElementById('clock-utc').innerText = now.toISOString().substring(11, 16) + ' Z';
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
-
-        // Simple Weather (Ottawa Default)
-        fetch('https://api.open-meteo.com/v1/forecast?latitude=45.42&longitude=-75.69&current=temperature_2m,wind_speed_10m&timezone=auto')
-            .then(res => res.json())
-            .then(data => {
-                const temp = Math.round(data.current.temperature_2m);
-                const wind = data.current.wind_speed_10m;
-                document.getElementById('weather-temp').innerText = `${temp}°C`;
-                document.getElementById('weather-desc').innerText = `Wind: ${wind} km/h`;
-            });
-
-        // --- 5. CHAT ---
-        async function sendMessage() {
-            const input = document.getElementById('userInput');
-            const text = input.value.trim();
-            if(!text) return;
-            addMsg(text, 'user');
             input.value = '';
-            try {
-                const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: text}) });
-                const data = await res.json();
-                addMsg(data.reply, 'ai');
-            } catch(e) { addMsg("⚠️ Error connecting to AI.", 'ai'); }
+            loadRadio();
         }
-        function addMsg(text, type) {
-            const div = document.createElement('div');
-            div.className = `msg ${type}`;
-            div.textContent = text;
-            document.getElementById('messages').appendChild(div);
+        function handleRadioKey(e) { if(e.key === 'Enter') sendRadio(); }
+
+        // --- 4. OPS & CLOCK ---
+        async function submitOp() {
+            const cat = document.getElementById('opCategory').value;
+            const sub = document.getElementById('opSubtype').value;
+            const loc = document.getElementById('opLoc').value;
+            const det = document.getElementById('opDetails').value;
+
+            await fetch('/api/operations', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ type: cat, subtype: sub, location: loc, details: det, officer_name: 'Current User' })
+            });
+            alert("Report Submitted to TOC");
+            document.getElementById('opDetails').value = '';
         }
-        function handleKey(e) { if(e.key === 'Enter') sendMessage(); }
+
+        async function clockAction(type) {
+            await fetch('/api/clock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: type, officer_name: 'Current User' })
+            });
+            const status = type === 'in' ? 'On Duty' : 'Off Duty';
+            document.getElementById('clock-status').innerText = `Status: ${status}`;
+            alert(`Clocked ${type.toUpperCase()} Successfully`);
+        }
     </script>
 </body>
 </html>
