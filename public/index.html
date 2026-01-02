@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TOC - The Evidence Based Security</title>
+    <title>TOC - Evidence Based Security</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -18,64 +18,60 @@
         .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; z-index: 50; transition: transform 0.3s; }
         .main-content { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; }
         
-        /* Mobile: Sidebar Hidden, Stack Layout */
         @media (max-width: 768px) {
             .sidebar { position: fixed; height: 100%; transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
-            .top-deck { height: 30% !important; } /* Map smaller on phone */
-            .radio-silo { display: none; } /* Hide sidebar radio, use floating button? Or stack it */
+            .top-deck { height: 35% !important; }
+            .radio-silo { display: none; } 
             .bottom-deck { flex-direction: column; }
-            .radio-mobile-view { display: flex !important; height: 40%; border-bottom: 1px solid #334155; }
         }
 
         .top-deck { height: 40%; display: flex; border-bottom: 2px solid #334155; }
         .bottom-deck { flex: 1; display: flex; overflow: hidden; }
-        
-        /* Radio Panel */
         .radio-silo { width: 300px; background: #0b1120; border-right: 1px solid #334155; display: flex; flex-direction: column; }
-        .radio-mobile-view { display: none; background: #0b1120; flex-direction: column; } /* For Mobile */
-
         .workspace { flex: 1; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
 
         /* UI ELEMENTS */
         .logo-area { padding: 20px; border-bottom: 1px solid #334155; text-align: center; }
-        .logo-title { color: var(--accent); font-weight: bold; font-size: 1.2rem; letter-spacing: 1px; }
-        .logo-sub { font-size: 0.7rem; color: #94a3b8; margin-top: 5px; text-transform: uppercase; }
+        .logo-img { width: 60px; height: 60px; object-fit: contain; margin-bottom: 10px; }
+        .logo-title { color: var(--accent); font-weight: bold; font-size: 1.1rem; letter-spacing: 1px; }
 
         .nav-cat { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 15px; font-weight: bold; }
         .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; display: flex; gap: 10px; transition: 0.2s; font-size: 0.95rem; }
         .nav-btn:hover { background: #334155; color: white; }
         .nav-btn.active { background: var(--accent); color: white; border-left: 4px solid #60a5fa; }
         
-        /* Tabs & Content */
         .tab-content { display: none; padding: 20px; height: 100%; overflow-y: auto; }
         .tab-content.active-tab { display: block; }
         
-        /* Cards & Forms */
+        /* Profile Pic Circle */
+        .profile-circle { width: 80px; height: 80px; border-radius: 50%; background: #334155; margin: 0 auto 10px; overflow: hidden; border: 2px solid var(--accent); position: relative; }
+        .profile-circle img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-upload-btn { font-size: 0.8rem; color: var(--accent); cursor: pointer; text-decoration: underline; display: block; text-align: center; margin-bottom: 20px; }
+
         .card { background: var(--panel); padding: 20px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 15px; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .form-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; margin-bottom: 10px; }
         .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
-        .btn-blue { background: var(--accent); } 
-        .btn-green { background: var(--green); } 
-        .btn-red { background: var(--red); }
+        .btn-blue { background: var(--accent); } .btn-red { background: var(--red); }
 
         /* Auth Modal */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
 
-        /* Chat & Map */
-        #map { width: 100%; height: 100%; }
-        .chat-log { flex: 1; overflow-y: auto; padding: 10px; font-size: 0.9rem; display: flex; flex-direction: column; gap: 8px; }
-        .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; }
+        /* Chat */
+        .chat-log { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; font-size: 0.9rem; }
         .chat-voice { border-color: var(--orange); cursor: pointer; display: flex; align-items: center; gap: 10px; }
-        .chat-voice:hover { background: rgba(245, 158, 11, 0.1); }
         
         .ptt-box { padding: 15px; background: var(--panel); border-top: 1px solid #334155; }
-        .ptt-btn { width: 100%; height: 70px; background: linear-gradient(145deg, #1e293b, #0f172a); border: 2px solid #475569; border-radius: 8px; color: #94a3b8; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 1.1rem; user-select: none; }
+        .ptt-btn { width: 100%; height: 60px; background: linear-gradient(145deg, #1e293b, #0f172a); border: 2px solid #475569; border-radius: 8px; color: #94a3b8; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; user-select: none; }
         .ptt-btn.active { background: var(--orange); color: black; border-color: var(--orange); box-shadow: 0 0 20px var(--orange); }
 
-        /* Mobile Menu Toggle */
+        /* Apps Grid */
+        .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+        .app-icon { background: var(--panel); border: 1px solid #334155; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; text-decoration: none; color: white; display: block; }
+        .app-icon:hover { border-color: var(--accent); background: #0f172a; }
+
         .menu-toggle { display: none; position: absolute; top: 10px; left: 10px; z-index: 1000; background: var(--panel); border: 1px solid #334155; padding: 8px; border-radius: 4px; color: white; cursor: pointer; }
         @media (max-width: 768px) { .menu-toggle { display: block; } }
     </style>
@@ -84,49 +80,39 @@
 
     <div class="modal-overlay" id="authModal">
         <div class="auth-card" id="loginForm">
-            <h2 style="color:var(--accent);">TOC LOGIN</h2>
-            <p style="color:#94a3b8; font-size:0.8rem; margin-bottom:20px;">The Evidence Based Security</p>
-            <input type="email" id="email" placeholder="Email Address" class="form-input">
+            <img src="https://cdn-icons-png.flaticon.com/512/9203/9203764.png" style="width:50px; margin-bottom:10px;">
+            <h2 style="color:var(--accent); margin:0 0 20px 0;">TOC LOGIN</h2>
+            <input type="email" id="email" placeholder="Email" class="form-input">
             <input type="password" id="password" placeholder="Password" class="form-input">
             <button class="btn btn-blue" style="width:100%;" onclick="handleLogin()">AUTHENTICATE</button>
             <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('signup')">New Recruit? Apply Here</p>
         </div>
-        
         <div class="auth-card" id="signupForm" style="display:none;">
             <h2 style="color:var(--green);">RECRUIT APPLICATION</h2>
-            <input type="text" id="regName" placeholder="Full Legal Name" class="form-input">
-            <input type="email" id="regEmail" placeholder="Email Address" class="form-input">
-            <input type="password" id="regPass" placeholder="Create Password" class="form-input">
-            <div style="font-size:0.7rem; color:#ef4444; margin-bottom:10px;">* Role will be assigned by Command.</div>
-            <button class="btn btn-green" style="width:100%;" onclick="handleSignup()">SUBMIT APPLICATION</button>
+            <input type="text" id="regName" placeholder="Full Name" class="form-input">
+            <input type="email" id="regEmail" placeholder="Email" class="form-input">
+            <input type="password" id="regPass" placeholder="Password" class="form-input">
+            <button class="btn btn-green" style="width:100%;" onclick="handleSignup()">SUBMIT</button>
             <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('login')">Back to Login</p>
         </div>
     </div>
 
-    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ MENU</button>
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
     <div class="sidebar">
         <div class="logo-area">
-            <div class="logo-title">TOC</div>
-            <div class="logo-sub">Tactical Ops Center</div>
-            <div style="font-size:0.6rem; color:#64748b; margin-top:2px;">Clean House - Clean Work</div>
+            <img src="https://cdn-icons-png.flaticon.com/512/9203/9203764.png" class="logo-img">
+            <div class="logo-title">EVIDENTIA</div>
+            <div style="font-size:0.6rem; color:#94a3b8;">Clean House - Clean Work</div>
         </div>
         
         <div class="nav-cat">My Station</div>
         <button class="nav-btn active" onclick="showTab('dashboard')"><span>📊</span> Dashboard</button>
         <button class="nav-btn" onclick="showTab('profile')"><span>🪪</span> My Profile</button>
-        <button class="nav-btn" onclick="showTab('timesheet')"><span>⏱️</span> Timesheet</button>
         
         <div class="nav-cat">Field Ops</div>
         <button class="nav-btn" onclick="showTab('reports')"><span>📝</span> Report Writer</button>
         <button class="nav-btn" onclick="showTab('apps')"><span>📱</span> Apps</button>
-        
-        <div id="commandLinks" style="display:none;">
-            <div class="nav-cat">Command & Control</div>
-            <button class="nav-btn" onclick="showTab('ticketing')"><span>🎫</span> Dispatch Tickets</button>
-            <button class="nav-btn" onclick="showTab('staff')"><span>👥</span> Staff Manager</button>
-            <button class="nav-btn" onclick="showTab('clients')"><span>🤝</span> Clients</button>
-        </div>
         
         <div style="margin-top:auto; padding:15px; border-top:1px solid #334155;">
             <button class="btn btn-red" style="width:100%; font-size:0.8rem;" onclick="doLogout()">LOGOUT</button>
@@ -135,24 +121,19 @@
 
     <div class="main-content">
         <div class="top-deck">
-            <div style="flex:1; position:relative;">
-                <div id="map"></div>
-                <div style="position:absolute; top:10px; right:10px; z-index:900; background:rgba(0,0,0,0.8); padding:5px 10px; border-radius:5px; font-size:0.8rem; border:1px solid #334155;">
-                    <span style="color:var(--green)">●</span> LIVE GPS
-                </div>
-            </div>
+            <div id="map" style="flex:1;"></div>
         </div>
 
         <div class="bottom-deck">
-            <div class="radio-silo" id="radioPanel">
+            <div class="radio-silo">
                 <div style="padding:10px; border-bottom:1px solid #334155; font-weight:bold; font-size:0.8rem; display:flex; justify-content:space-between;">
-                    <span>MAIN DISPATCH</span>
-                    <span style="color:var(--green)">● ONLINE</span>
+                    <span>DISPATCH RADIO</span>
+                    <button onclick="unlockAudio()" style="background:transparent; border:1px solid #64748b; color:var(--green); font-size:0.6rem; cursor:pointer;">CONNECT AUDIO 🔊</button>
                 </div>
                 <div class="chat-log" id="chatArea"></div>
                 <div class="ptt-box">
                     <div style="display:flex; gap:5px; margin-bottom:10px;">
-                        <input type="text" id="textInput" class="form-input" style="margin:0;" placeholder="Type message...">
+                        <input type="text" id="textInput" class="form-input" style="margin:0;" placeholder="Message...">
                         <button onclick="sendText()" class="btn btn-blue">➤</button>
                     </div>
                     <button id="pttBtn" class="ptt-btn"><span>🎙️</span> HOLD TO TALK</button>
@@ -164,121 +145,51 @@
                 <div id="tab-dashboard" class="tab-content active-tab">
                     <h2>Mission Dashboard</h2>
                     <div class="card">
-                        <div style="display:flex; justify-content:space-between;">
-                            <div>
-                                <h3 style="margin:0;">Status: <span style="color:var(--green)">ACTIVE</span></h3>
-                                <p id="dashRole">Role: Loading...</p>
-                            </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:1.5rem; font-weight:bold;" id="dashHours">0.0h</div>
-                                <div style="font-size:0.8rem; color:#94a3b8;">Shift Total</div>
-                            </div>
-                        </div>
-                        <button class="btn btn-red" style="margin-top:10px;" onclick="clockOut()">END SHIFT</button>
-                    </div>
-                    <div class="card">
-                        <h3>Pending Tasks</h3>
-                        <div id="pendingTaskList"><i>No active tasks assigned.</i></div>
+                        <h3>Status: <span style="color:var(--green)">ACTIVE</span></h3>
+                        <p id="dashName">Officer: Loading...</p>
+                        <button class="btn btn-red" onclick="clockOut()">END SHIFT (Clock Out)</button>
                     </div>
                 </div>
 
                 <div id="tab-profile" class="tab-content">
-                    <h2>Officer Personnel File</h2>
-                    <div class="card">
-                        <h3>Identity</h3>
-                        <div class="form-grid">
-                            <input type="text" id="profName" placeholder="Full Name" class="form-input" disabled>
-                            <input type="text" id="profTitle" placeholder="Title (e.g. Senior Officer)" class="form-input">
-                            <input type="text" id="profRank" placeholder="Rank" class="form-input">
-                            <input type="text" id="profTeam" placeholder="Team (e.g. Alpha)" class="form-input">
-                            <input type="date" id="profDob" class="form-input">
+                    <h2>Officer Profile</h2>
+                    <div class="card" style="text-align:center;">
+                        <div class="profile-circle">
+                            <img id="profPicDisplay" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
                         </div>
-                        <h3>Contact</h3>
-                        <div class="form-grid">
-                            <input type="text" id="profWPhone" placeholder="Work Phone" class="form-input">
-                            <input type="text" id="profPPhone" placeholder="Personal Phone" class="form-input">
-                            <input type="text" id="profWEmail" placeholder="Work Email" class="form-input">
-                            <input type="text" id="profPEmail" placeholder="Personal Email" class="form-input">
+                        <label class="profile-upload-btn">
+                            Click to Update Photo
+                            <input type="file" id="picInput" style="display:none;" accept="image/*" onchange="uploadProfilePic()">
+                        </label>
+                        
+                        <div style="text-align:left;">
+                            <label>Rank / Title</label>
+                            <input type="text" id="profRank" class="form-input" placeholder="e.g. Senior Officer">
+                            <label>Phone</label>
+                            <input type="text" id="profPhone" class="form-input">
+                            <button class="btn btn-blue" onclick="saveProfile()">Save Details</button>
                         </div>
-                        <button class="btn btn-blue" onclick="updateProfile()">Save Changes</button>
-                    </div>
-                </div>
-
-                <div id="tab-timesheet" class="tab-content">
-                    <h2>My Timesheet History</h2>
-                    <div class="card">
-                        <table id="timesheetTable"><tr><td>Loading records...</td></tr></table>
                     </div>
                 </div>
 
                 <div id="tab-reports" class="tab-content">
-                    <h2>Field Report Writer</h2>
+                    <h2>Report Writer</h2>
                     <div class="card">
-                        <label>Incident Type</label>
-                        <select id="repType" class="form-input"></select>
-                        <input type="text" id="repLoc" placeholder="Exact Location" class="form-input">
-                        <textarea id="repNar" rows="5" class="form-input" placeholder="Detailed Narrative..."></textarea>
-                        
-                        <div style="border:2px dashed #334155; padding:15px; text-align:center; margin-bottom:10px; cursor:pointer;" onclick="alert('File Picker will open here')">
-                            📎 Attach Photo / Video Evidence
-                        </div>
-                        
-                        <button class="btn btn-blue" onclick="submitReport()">Submit Report</button>
+                        <label>Incident Category</label>
+                        <select id="repType" class="form-input"><option>Loading...</option></select>
+                        <input type="text" id="repLoc" class="form-input" placeholder="Location">
+                        <textarea id="repNar" rows="4" class="form-input" placeholder="Details..."></textarea>
+                        <button class="btn btn-blue" onclick="submitReport()">Submit</button>
                     </div>
                 </div>
 
-                <div id="tab-ticketing" class="tab-content">
-                    <h2>Dispatch & Ticketing</h2>
-                    <div class="card">
-                        <h3>Create New Ticket</h3>
-                        <div class="form-grid">
-                            <select id="tickClient" class="form-input"><option>Select Client...</option></select>
-                            <select id="tickPriority" class="form-input">
-                                <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
-                            </select>
-                        </div>
-                        <select id="tickType" class="form-input">
-                            <option>Alarm Response</option><option>Patrol</option><option>Escort</option>
-                        </select>
-                        <textarea id="tickDesc" class="form-input" placeholder="Ticket Details..."></textarea>
-                        <button class="btn btn-green" onclick="createTicket()">Dispatch Ticket</button>
-                    </div>
-                    <div class="card">
-                        <h3>Active Tickets</h3>
-                        <table id="ticketTable"></table>
-                    </div>
-                </div>
-
-                <div id="tab-staff" class="tab-content">
-                    <h2>Staff Management</h2>
-                    <div class="card">
-                        <table id="staffTable"><tr><td>Loading Personnel...</td></tr></table>
-                    </div>
-                </div>
-
-                <div id="tab-clients" class="tab-content">
-                    <h2>Client CRM</h2>
-                    <div class="card">
-                        <h3>Add Client</h3>
-                        <div class="form-grid">
-                            <input type="text" id="cliName" placeholder="Business Name" class="form-input">
-                            <input type="text" id="cliPhone" placeholder="Phone" class="form-input">
-                        </div>
-                        <input type="text" id="cliAddr" placeholder="Address" class="form-input">
-                        <button class="btn btn-blue" onclick="addClient()">Add to Database</button>
-                    </div>
-                    <div class="card">
-                        <h3>Client List</h3>
-                        <table id="clientTable"></table>
-                    </div>
-                </div>
-
-                 <div id="tab-apps" class="tab-content">
-                    <h2>Apps</h2>
-                    <div class="app-grid" style="display:grid; gap:10px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));">
-                        <div class="card" style="text-align:center;">💰 QuickBooks</div>
-                        <div class="card" style="text-align:center;">🚁 NavDrone</div>
-                        <div class="card" style="text-align:center;">📱 Connecteam</div>
+                <div id="tab-apps" class="tab-content">
+                    <h2>App Launcher</h2>
+                    <div class="app-grid">
+                        <a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰 QuickBooks</a>
+                        <a href="https://map.navdrone.ca" target="_blank" class="app-icon">🚁 NavDrone</a>
+                        <a href="https://app.connecteam.com" target="_blank" class="app-icon">📱 Connecteam</a>
+                        <a href="https://zello.com" target="_blank" class="app-icon">📻 Zello</a>
                     </div>
                 </div>
 
@@ -287,19 +198,19 @@
     </div>
 
     <script>
-        // --- ⬇️ PASTE SUPABASE KEYS HERE ⬇️ ---
+        // --- ⬇️ KEYS HERE ⬇️ ---
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM"; 
-        // ---------------------------------------
+        // -----------------------
 
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         const socket = io();
         let currentUser = null;
+        let audioContext = null; // Browser Audio Policy Fix
         let mediaRecorder, audioChunks=[];
 
-        // --- AUTH & SESSION ---
+        // --- AUTH ---
         window.onload = async () => {
-            // Check for existing session
             const { data: { session } } = await sb.auth.getSession();
             if (session) {
                 document.getElementById('authModal').style.display = 'none';
@@ -325,160 +236,87 @@
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
-            // Signup logic - Default role is Unassigned (handled by DB)
-            const { error } = await sb.auth.signUp({
-                email, password, options: { data: { full_name: name } }
-            });
-            if(error) alert(error.message);
-            else alert("Application Submitted. Wait for Command Approval.");
+            const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
+            if(error) alert(error.message); else alert("Applied. Check Email.");
         }
 
         async function fetchProfile(uid) {
             const { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
-            if(!profile) return;
             currentUser = profile;
+            document.getElementById('dashName').innerText = "Officer: " + profile.full_name;
+            document.getElementById('profRank').value = profile.rank || "";
+            document.getElementById('profPhone').value = profile.work_phone || "";
+            if(profile.profile_pic_url) document.getElementById('profPicDisplay').src = profile.profile_pic_url;
 
-            // Update UI
-            document.getElementById('dashRole').innerText = "Role: " + profile.role;
-            document.getElementById('profName').value = profile.full_name;
-            document.getElementById('profRank').value = profile.rank || '';
-            document.getElementById('profTeam').value = profile.team || '';
-            document.getElementById('profTitle').value = profile.title || '';
-            document.getElementById('profWPhone').value = profile.work_phone || '';
-            
-            // Show Command Tools
-            if(['Admin','Command','Dispatch'].includes(profile.role)) {
-                document.getElementById('commandLinks').style.display = 'block';
-                loadStaff();
-                loadClients();
-                loadTickets();
-            }
-
-            // Load Common Data
+            loadConfig();
             loadRadioHistory();
-            loadStats();
-            startTracking();
-        }
-
-        async function doLogout() { await sb.auth.signOut(); location.reload(); }
-
-        // --- FEATURES ---
-        async function updateProfile() {
-            const updates = {
-                title: document.getElementById('profTitle').value,
-                rank: document.getElementById('profRank').value,
-                team: document.getElementById('profTeam').value,
-                work_phone: document.getElementById('profWPhone').value,
-                personal_phone: document.getElementById('profPPhone').value,
-                work_email: document.getElementById('profWEmail').value,
-                personal_email: document.getElementById('profPEmail').value,
-                dob: document.getElementById('profDob').value
-            };
-            await fetch('/api/profile/update', {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ id: currentUser.id, updates })
-            });
-            alert("Profile Updated");
-        }
-
-        async function loadStats() {
-            const res = await fetch(`/api/stats/${currentUser.full_name}`);
-            const data = await res.json();
-            document.getElementById('dashHours').innerText = data.hours + "h";
-        }
-
-        // --- COMMAND TOOLS ---
-        async function loadStaff() {
-            const res = await fetch('/api/staff');
-            const data = await res.json();
-            const tbl = document.getElementById('staffTable');
-            tbl.innerHTML = `<tr><th>Name</th><th>Role</th><th>Rank</th><th>Action</th></tr>`;
-            data.forEach(u => {
-                tbl.innerHTML += `
-                    <tr>
-                        <td>${u.full_name}</td>
-                        <td>${u.role}</td>
-                        <td>${u.rank||'-'}</td>
-                        <td><button style="font-size:0.7rem;" onclick="promote('${u.id}')">Edit</button></td>
-                    </tr>`;
+            
+            if(navigator.geolocation) navigator.geolocation.watchPosition(pos => {
+                socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat: pos.coords.latitude, lng: pos.coords.longitude });
+                // Center Map Initial
+                map.setView([pos.coords.latitude, pos.coords.longitude], 15);
             });
         }
         
-        async function loadClients() {
-            const res = await fetch('/api/clients');
-            const data = await res.json();
-            const sel = document.getElementById('tickClient');
-            const tbl = document.getElementById('clientTable');
-            sel.innerHTML = '<option>Select Client...</option>';
-            tbl.innerHTML = '<tr><th>Name</th><th>Phone</th></tr>';
-            
-            data.forEach(c => {
-                sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-                tbl.innerHTML += `<tr><td>${c.name}</td><td>${c.phone}</td></tr>`;
+        async function doLogout() { await sb.auth.signOut(); location.reload(); }
+
+        // --- FEATURES ---
+        async function loadConfig() {
+            const res = await fetch('/api/config/incident_types');
+            const types = await res.json();
+            const sel = document.getElementById('repType');
+            sel.innerHTML = '';
+            types.forEach(t => sel.innerHTML += `<option>${t}</option>`);
+        }
+
+        async function clockOut() {
+            if(confirm("End Shift?")) {
+                await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'out', officer_name: currentUser.full_name }) });
+                alert("Shift Closed.");
+            }
+        }
+
+        // --- PROFILE PIC UPLOAD (Base64) ---
+        function uploadProfilePic() {
+            const file = document.getElementById('picInput').files[0];
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                // Warning: This saves image string to DB. Good for small icons.
+                // ideally use Supabase Storage, but this is faster to setup.
+                document.getElementById('profPicDisplay').src = reader.result;
+                await fetch('/api/profile/update', { 
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ id: currentUser.id, updates: { profile_pic_url: reader.result } })
+                });
+            }
+            if(file) reader.readAsDataURL(file);
+        }
+
+        async function saveProfile() {
+            await fetch('/api/profile/update', { 
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ id: currentUser.id, updates: { 
+                    rank: document.getElementById('profRank').value,
+                    work_phone: document.getElementById('profPhone').value
+                }})
             });
+            alert("Saved.");
         }
 
-        async function addClient() {
-            const name = document.getElementById('cliName').value;
-            const phone = document.getElementById('cliPhone').value;
-            const address = document.getElementById('cliAddr').value;
-            await fetch('/api/clients', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, phone, address}) });
-            loadClients();
+        // --- RADIO (AUDIO FIX) ---
+        function unlockAudio() {
+            // Browsers block audio unless triggered by user. This button enables it.
+            const audio = new Audio();
+            audio.play().catch(() => {});
+            alert("Audio Connected. You can now hear transmissions.");
         }
 
-        async function createTicket() {
-            const client_id = document.getElementById('tickClient').value;
-            const type = document.getElementById('tickType').value;
-            const priority = document.getElementById('tickPriority').value;
-            const description = document.getElementById('tickDesc').value;
-            await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({client_id, type, priority, description}) });
-            loadTickets();
-        }
-
-        async function loadTickets() {
-            const res = await fetch('/api/tickets');
-            const data = await res.json();
-            const tbl = document.getElementById('ticketTable');
-            tbl.innerHTML = '<tr><th>Client</th><th>Type</th><th>Priority</th><th>Status</th></tr>';
-            data.forEach(t => {
-                const color = t.priority === 'Critical' ? 'red' : 'white';
-                tbl.innerHTML += `<tr><td>${t.clients?.name}</td><td>${t.type}</td><td style="color:${color}">${t.priority}</td><td>${t.status}</td></tr>`;
-            });
-        }
-
-        // --- RADIO HISTORY ---
         async function loadRadioHistory() {
             const res = await fetch('/api/radio-history');
             const logs = await res.json();
             logs.forEach(l => addLog(l.sender, l.message, l.is_voice, l.audio_data));
         }
 
-        // --- MAP & RADIO CORE ---
-        const map = L.map('map').setView([0,0], 2);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-        const markers = {};
-        
-        function startTracking() {
-            if(navigator.geolocation) {
-                navigator.geolocation.watchPosition(pos => {
-                    const { latitude, longitude } = pos.coords;
-                    socket.emit('unit-login', { name: currentUser.full_name, role: currentUser.role, lat: latitude, lng: longitude });
-                    if(!markers['me']) map.setView([latitude, longitude], 15);
-                });
-            }
-        }
-
-        socket.on('map-update', units => {
-            units.forEach(u => {
-                if(u.lat) {
-                    if(markers[u.socketId]) map.removeLayer(markers[u.socketId]);
-                    const color = u.role === 'Command' ? '#f59e0b' : '#3b82f6';
-                    markers[u.socketId] = L.circleMarker([u.lat, u.lng], {color, radius:8}).addTo(map).bindPopup(u.name);
-                }
-            });
-        });
-
-        // PTT Logic
         navigator.mediaDevices.getUserMedia({audio:true}).then(s => {
             mediaRecorder=new MediaRecorder(s);
             mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
@@ -491,14 +329,14 @@
                 };
                 audioChunks=[];
             };
-        });
+        }).catch(e=>console.log("Mic blocked"));
 
         const btn=document.getElementById('pttBtn');
         btn.onmousedown=btn.ontouchstart=()=>{if(mediaRecorder?.state==='inactive'){mediaRecorder.start();btn.classList.add('active')}};
         btn.onmouseup=btn.ontouchend=()=>{if(mediaRecorder?.state==='recording'){mediaRecorder.stop();btn.classList.remove('active')}};
         
         socket.on('radio-playback',d=>{addLog(d.name,"Audio",true,d.audio); new Audio(d.audio).play();});
-        socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false));
+        socket.on('radio-text-broadcast',d=>{addLog(d.name, d.msg, false);});
 
         function addLog(n,m,v,s){
             const d=document.createElement('div'); d.className='chat-msg';
@@ -509,18 +347,22 @@
             } else {
                 d.innerHTML = `<b>${n}</b>: ${m}`;
             }
-            const area = document.getElementById('chatArea');
-            area.appendChild(d);
-            area.scrollTop = area.scrollHeight;
+            document.getElementById('chatArea').appendChild(d);
         }
+
+        function sendText() {
+            const msg = document.getElementById('textInput').value;
+            if(currentUser && msg) socket.emit('radio-text', {name:currentUser.full_name, msg, lat:0, lng:0});
+            else alert("Not logged in");
+            document.getElementById('textInput').value='';
+        }
+
+        const map = L.map('map').setView([0,0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
         function showTab(id) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab'));
-            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-'+id).classList.add('active-tab');
-            event.currentTarget.classList.add('active');
-            
-            // Mobile Sidebar Close
             if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open');
         }
     </script>
