@@ -208,12 +208,13 @@
     </div>
 
     <script>
-        // --- CONFIG ---
-        // ⚠️ REPLACE THESE WITH YOUR SUPABASE URL AND KEY FROM THE DASHBOARD ⚠️
+        // --- ⬇️ PASTE YOUR SUPABASE KEYS INSIDE THESE QUOTES ⬇️ ---
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
-        const SUPABASE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM; 
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM
+"; 
+        // -----------------------------------------------------------
 
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         const socket = io();
         let currentUser = null;
         let mediaRecorder, audioChunks=[];
@@ -232,78 +233,56 @@
             });
         });
 
-        // --- AUTH & LOGIN ---
+        // --- AUTH ---
         function toggleAuth(mode) {
             document.getElementById('loginForm').style.display = mode==='login'?'block':'none';
             document.getElementById('signupForm').style.display = mode==='signup'?'block':'none';
         }
 
         async function handleSignup() {
-            console.log("Attempting Signup...");
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const role = document.getElementById('regRole').value;
 
-            if(!email || !password) return alert("Please fill in email and password");
+            if(!email || !password) return alert("Please fill all fields");
 
-            try {
-                const { data, error } = await sb.auth.signUp({
-                    email, password,
-                    options: { data: { full_name: name, role: role } }
-                });
+            const { data, error } = await sb.auth.signUp({
+                email, password,
+                options: { data: { full_name: name, role: role } }
+            });
 
-                if (error) {
-                    console.error("Signup Error:", error);
-                    alert("Error: " + error.message);
-                } else {
-                    console.log("Signup Success:", data);
-                    alert("Registration successful! Please check your email to confirm, then log in.");
-                }
-            } catch (err) {
-                console.error("Unexpected Error:", err);
-                alert("System Crash: check console for details.");
-            }
+            if(error) alert("Error: " + error.message);
+            else alert("Registration successful! Check email for confirmation link.");
         }
 
         async function handleLogin() {
-            console.log("Attempting Login...");
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             
             if(!email || !password) return alert("Please enter email and password");
 
-            try {
-                const { data, error } = await sb.auth.signInWithPassword({ email, password });
-                
-                if (error) {
-                    console.error("Login Error:", error);
-                    alert("Login Failed: " + error.message);
-                } else {
-                    console.log("Login Success:", data);
-                    document.getElementById('authModal').style.display = 'none';
-                    fetchProfile(data.user.id);
-                }
-            } catch (err) {
-                console.error("Unexpected Error:", err);
-                alert("System Crash: check console for details.");
-            }
-        async function fetchProfile(uid) {
-            // Get Role from DB
-            const { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
-            currentUser = profile;
+            const { data, error } = await sb.auth.signInWithPassword({ email, password });
             
+            if(error) return alert("Login Failed: " + error.message);
+            
+            document.getElementById('authModal').style.display = 'none';
+            fetchProfile(data.user.id);
+        }
+
+        async function fetchProfile(uid) {
+            const { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
+            if(!profile) return alert("Profile not found. Please contact Admin.");
+
+            currentUser = profile;
             document.getElementById('displayRole').innerText = profile.role;
             
-            // Show Admin/Instructor tabs if applicable
             if(['Admin','Instructor'].includes(profile.role)) document.getElementById('adminLinks').style.display = 'block';
             
-            // Load Data
             loadConfig();
             loadLicenses();
             loadCourses();
             
-            // Connect Socket
             if(navigator.geolocation) navigator.geolocation.watchPosition(pos => {
                 socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat: pos.coords.latitude, lng: pos.coords.longitude });
             });
@@ -314,7 +293,7 @@
             location.reload();
         }
 
-        // --- DYNAMIC FEATURES ---
+        // --- LOGIC ---
         async function loadConfig() {
             const res = await fetch('/api/config/incident_types');
             const types = await res.json();
@@ -335,7 +314,6 @@
             loadConfig();
         }
 
-        // --- HR / LICENSES (FIXED VERSION) ---
         async function loadLicenses() {
             const res = await fetch(`/api/licenses/${currentUser.id}`);
             const data = await res.json();
@@ -343,11 +321,9 @@
             tbl.innerHTML = `<tr><th>Type</th><th>Number</th><th>Expiry</th><th>Status</th></tr>`;
             
             data.forEach(l => {
-                // FIXED: Status is calculated here now
                 const isExpired = new Date(l.expiry_date) < new Date();
                 const status = isExpired ? 'Expired' : 'Valid';
                 const color = isExpired ? 'red' : 'green';
-                
                 tbl.innerHTML += `<tr><td>${l.type}</td><td>${l.id_number}</td><td>${l.expiry_date}</td><td style="color:${color}">${status}</td></tr>`;
             });
         }
@@ -360,7 +336,6 @@
             loadLicenses();
         }
 
-        // --- COURSES ---
         async function loadCourses() {
             const res = await fetch('/api/courses');
             const data = await res.json();
@@ -385,7 +360,6 @@
             loadCourses();
         }
 
-        // --- UI UTILS ---
         function showTab(id) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -403,10 +377,12 @@
                 reader.onloadend=()=>{ socket.emit('radio-voice',{audio:reader.result, name:currentUser.full_name, lat:currentLat, lng:currentLng}); addLog("Me","Audio",true,reader.result); };
                 audioChunks=[];
             };
-        });
+        }).catch(e=>console.log("Mic blocked"));
+        
         const btn=document.getElementById('pttBtn');
         btn.onmousedown=()=>{if(mediaRecorder?.state==='inactive'){mediaRecorder.start();btn.classList.add('active')}};
         btn.onmouseup=()=>{if(mediaRecorder?.state==='recording'){mediaRecorder.stop();btn.classList.remove('active')}};
+        
         socket.on('radio-playback',d=>{addLog(d.name,"Audio",true,d.audio);new Audio(d.audio).play()});
         function addLog(n,m,v,s){
             const d=document.createElement('div'); d.className='chat-msg';
