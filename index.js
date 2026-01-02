@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+// NEW SDK IMPORT
+const { GoogleGenAI } = require("@google/genai");
 require('dotenv').config();
 
 const app = express();
@@ -14,31 +15,22 @@ app.get('/api/config', (req, res) => {
     res.json({ status: "Online", mode: "Hub" });
 });
 
-// 2. Chat Endpoint (Now using the faster Flash model supported by the new library)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// 2. Chat Endpoint (Using GEMINI 2.5 FLASH)
+// Initialize with the new SDK format
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 app.post('/api/chat', async (req, res) => {
     try {
-        // With the library update, this model will now work reliably
-        // The classic model that works on all library versions
-import { GoogleGenAI } from "@google/genai";
+        // NEW SDK SYNTAX:
+        // 1. Use 'ai.models.generateContent'
+        // 2. Pass an object with 'model' and 'contents'
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `You are a security operations AI for Evidentia. Concise answers. User: ${req.body.message}`
+        });
 
-const ai = new GoogleGenAI({ apiKey: "YAIzaSyDPT7e9_1uExRUrb4LN1Z0kmryTRqeIvgY" });
-
-async function main() {
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: "Explain how AI works in a few words",
-  });
-  console.log(response.text);
-}
-
-main();
-        
-        const prompt = `You are a security operations AI for Evidentia. Keep answers concise and professional. User: ${req.body.message}`;
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        // The new SDK returns text via the .text property (not a function)
+        const text = response.text; 
         
         res.json({ reply: text });
         
@@ -48,7 +40,7 @@ main();
     }
 });
 
-// 3. Hub Data Endpoint (Mock Data for the Dashboard)
+// 3. Hub Data Endpoint
 app.get('/api/incidents', (req, res) => {
     res.json([
         { id: 101, type: "Unauthorized Access", location: "Server-DB-04", status: "Critical" },
@@ -68,6 +60,3 @@ if (require.main === module) {
     });
 }
 module.exports = app;
-
-
-
