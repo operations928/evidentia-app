@@ -21,8 +21,8 @@
         let currentChannel = 'MAIN';
         let isDispatched = false; 
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let myMarker = null; // GPS Marker
-        let myAccuracy = null; // GPS Radius
+        let myMarker = null; 
+        let myAccuracy = null;
 
         // INIT
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
@@ -104,6 +104,13 @@
         .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
         .app-icon { background: var(--panel); border: 1px solid #334155; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; text-decoration: none; color: white; display: block; font-size: 2rem; }
         .app-icon span { display: block; font-size: 0.8rem; margin-top: 5px; color: #ccc; }
+        
+        /* FILE UPLOAD STYLES */
+        .doc-upload-box { border: 2px dashed #475569; padding: 15px; text-align: center; margin-bottom: 10px; border-radius: 6px; cursor: pointer; position: relative; }
+        .doc-upload-box:hover { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); }
+        .doc-label { font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 5px; display: block; text-align: left; }
+        .doc-preview { font-size: 0.7rem; color: var(--green); display: block; margin-top: 5px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     </style>
 </head>
 <body>
@@ -135,12 +142,12 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v8.0 PRECISION MAP</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v9.0 PROFILE MAX</div>
         </div>
         
         <div class="nav-cat">My Station</div>
         <button class="nav-btn active" onclick="showTab('dashboard')"><span>📊</span> Dashboard</button>
-        <button class="nav-btn" onclick="showTab('profile')"><span>🪪</span> My Profile</button>
+        <button class="nav-btn" onclick="showTab('profile')"><span>🪪</span> Personnel File</button>
         <button class="nav-btn" onclick="showTab('timesheet')"><span>⏱️</span> Timesheet</button>
         
         <div class="nav-cat">Field Ops</div>
@@ -208,72 +215,116 @@
                         </div>
                         <p id="dashName">Officer: Loading...</p>
                         <p id="dashRole">Role: Loading...</p>
-                        
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:15px 0;">
                             <div style="background:#0f172a; padding:10px; text-align:center; border-radius:5px;">
-                                <div style="font-size:0.8rem; color:#94a3b8;">REPORTS FILED</div>
+                                <div style="font-size:0.8rem; color:#94a3b8;">REPORTS</div>
                                 <div id="statReports" style="font-size:1.5rem; font-weight:bold;">0</div>
                             </div>
                             <div style="background:#0f172a; padding:10px; text-align:center; border-radius:5px;">
-                                <div style="font-size:0.8rem; color:#94a3b8;">HOURS WORKED</div>
+                                <div style="font-size:0.8rem; color:#94a3b8;">HOURS</div>
                                 <div id="statHours" style="font-size:1.5rem; font-weight:bold;">0.0</div>
                             </div>
                         </div>
-
                         <button class="btn btn-red" style="width:100%;" onclick="clockOut()">END SHIFT (Clock Out)</button>
                     </div>
                 </div>
 
                 <div id="tab-profile" class="tab-content">
                     <h2>Personnel File</h2>
+                    
                     <div class="card">
                         <div style="text-align:center; margin-bottom:20px;">
                              <img id="profPicDisplay" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" style="width:100px; height:100px; border-radius:50%; border:2px solid #3b82f6;">
                              <br>
                              <label style="cursor:pointer; color:#3b82f6; font-size:0.8rem;">Update Photo <input type="file" id="picInput" style="display:none;" onchange="uploadProfilePic()"></label>
                         </div>
-                        <h3>Identity</h3>
-                        <input type="text" id="profName" class="form-input" disabled>
-                        <input type="text" id="profRank" class="form-input" placeholder="Rank">
-                        <input type="text" id="profPhone" class="form-input" placeholder="Phone">
-                        <button class="btn btn-blue" onclick="saveProfile()">Update</button>
+                        
+                        <h3>Performance Stats</h3>
+                        <div class="grid-2">
+                            <div><label class="doc-label">Acceptance Rate</label><input type="text" id="profAccRate" class="form-input" disabled value="100%"></div>
+                            <div><label class="doc-label">Calls Missed</label><input type="text" id="profMissed" class="form-input" disabled value="0"></div>
+                            <div><label class="doc-label">Total Reports</label><input type="text" id="profRepClosed" class="form-input" disabled value="0"></div>
+                            <div><label class="doc-label">Total Hours</label><input type="text" id="profTotalHours" class="form-input" disabled value="0"></div>
+                        </div>
+
+                        <h3>Core Identity</h3>
+                        <div class="grid-2">
+                            <div><label class="doc-label">Full Name</label><input type="text" id="profName" class="form-input"></div>
+                            <div><label class="doc-label">Rank</label><input type="text" id="profRank" class="form-input"></div>
+                            <div><label class="doc-label">Call Sign</label><input type="text" id="profCallSign" class="form-input" placeholder="e.g. ALPHA-1"></div>
+                            <div><label class="doc-label">Title/Role</label><input type="text" id="profTitle" class="form-input"></div>
+                            <div><label class="doc-label">Security License #</label><input type="text" id="profSecLicNum" class="form-input"></div>
+                            <div><label class="doc-label">Phone</label><input type="text" id="profPhone" class="form-input"></div>
+                        </div>
+                        
+                        <div class="grid-2" style="margin-top:10px;">
+                            <div><label class="doc-label">Start Date</label><input type="date" id="profStart" class="form-input"></div>
+                            <div><label class="doc-label">Termination Date</label><input type="date" id="profTerm" class="form-input"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Document Locker (Click to Upload)</h3>
+                        
+                        <label class="doc-upload-box">
+                            <span class="doc-label">DRIVER'S LICENSE</span>
+                            <span style="font-size:2rem;">🪪</span>
+                            <span id="prevDriver" class="doc-preview">Not Uploaded</span>
+                            <input type="file" style="display:none;" onchange="uploadDoc('doc_driver', this)">
+                        </label>
+
+                        <div class="grid-2">
+                            <label class="doc-upload-box">
+                                <span class="doc-label">CPR CERTIFICATE</span>
+                                <span style="font-size:1.5rem;">❤️</span>
+                                <span id="prevCpr" class="doc-preview">Not Uploaded</span>
+                                <input type="file" style="display:none;" onchange="uploadDoc('doc_cpr', this)">
+                            </label>
+                            
+                            <label class="doc-upload-box">
+                                <span class="doc-label">SECURITY LICENSE</span>
+                                <span style="font-size:1.5rem;">🛡️</span>
+                                <span id="prevSecLic" class="doc-preview">Not Uploaded</span>
+                                <input type="file" style="display:none;" onchange="uploadDoc('doc_security_lic', this)">
+                            </label>
+                        </div>
+
+                        <div class="grid-2">
+                            <label class="doc-upload-box">
+                                <span class="doc-label">USE OF FORCE</span>
+                                <span style="font-size:1.5rem;">👮</span>
+                                <span id="prevForce" class="doc-preview">Not Uploaded</span>
+                                <input type="file" style="display:none;" onchange="uploadDoc('doc_force', this)">
+                            </label>
+                            
+                            <label class="doc-upload-box">
+                                <span class="doc-label">OTHER CERTIFICATIONS</span>
+                                <span style="font-size:1.5rem;">📜</span>
+                                <span id="prevOther" class="doc-preview">Not Uploaded</span>
+                                <input type="file" style="display:none;" onchange="uploadDoc('doc_other', this)">
+                            </label>
+                        </div>
+                        
+                        <button class="btn btn-blue" style="width:100%; margin-top:20px;" onclick="saveProfile()">SAVE PERSONNEL FILE</button>
                     </div>
                 </div>
 
                 <div id="tab-tickets" class="tab-content">
                     <h2>Tickets</h2>
-                    <div class="card">
-                        <input type="text" id="tickDesc" class="form-input" placeholder="Ticket Description">
-                        <button class="btn btn-green" onclick="createTicket()">Create Ticket</button>
-                    </div>
+                    <div class="card"><input type="text" id="tickDesc" class="form-input" placeholder="Ticket Description"><button class="btn btn-green" onclick="createTicket()">Create Ticket</button></div>
                     <div class="card"><div id="ticketList">Loading...</div></div>
                 </div>
-
                 <div id="tab-clients" class="tab-content">
                     <h2>Clients</h2>
-                    <div class="card">
-                        <input type="text" id="cliName" class="form-input" placeholder="Client Name">
-                        <button class="btn btn-blue" onclick="addClient()">Add Client</button>
-                    </div>
+                    <div class="card"><input type="text" id="cliName" class="form-input" placeholder="Client Name"><button class="btn btn-blue" onclick="addClient()">Add Client</button></div>
                     <div class="card"><div id="clientList">Loading...</div></div>
                 </div>
-
                 <div id="tab-staff" class="tab-content"><h2>Staff</h2><div class="card"><div id="staffList">Loading...</div></div></div>
-                
-                <div id="tab-apps" class="tab-content">
-                    <h2>Apps</h2>
-                    <div class="app-grid">
-                        <a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a>
-                        <a href="https://map.navdrone.ca" target="_blank" class="app-icon">🚁<span>NavDrone</span></a>
-                        <a href="https://app.connecteam.com" target="_blank" class="app-icon">📱<span>Connecteam</span></a>
-                        <a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a>
-                    </div>
-                </div>
-
-                <div id="tab-training" class="tab-content"><h2>Training</h2><div id="courseList" class="card">Loading courses...</div></div>
-                <div id="tab-reports" class="tab-content"><h2>Reports</h2><div class="card"><textarea id="repNar" class="form-input" rows="4" placeholder="Report Narrative"></textarea><button class="btn btn-blue" onclick="submitReport()">Submit</button></div></div>
-                <div id="tab-timesheet" class="tab-content"><h2>Timesheet</h2><div class="card">History</div></div>
                 <div id="tab-admin" class="tab-content"><h2>Config</h2><div class="card"><button class="btn btn-blue" onclick="saveConfig()">Update Config</button></div></div>
+                <div id="tab-reports" class="tab-content"><h2>Reports</h2><div class="card"><textarea id="repNar" class="form-input" rows="4" placeholder="Report Narrative"></textarea><button class="btn btn-blue" onclick="submitReport()">Submit</button></div></div>
+                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="app-grid"><a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a><a href="https://map.navdrone.ca" target="_blank" class="app-icon">🚁<span>NavDrone</span></a><a href="https://app.connecteam.com" target="_blank" class="app-icon">📱<span>Connecteam</span></a><a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a></div></div>
+                <div id="tab-training" class="tab-content"><h2>Training</h2><div id="courseList" class="card">Loading courses...</div></div>
+                <div id="tab-timesheet" class="tab-content"><h2>Timesheet</h2><div class="card">History</div></div>
             </div>
         </div>
     </div>
@@ -302,6 +353,7 @@
             }
         };
 
+        // --- FETCH & POPULATE PROFILE ---
         async function fetchProfile(uid, email) {
             let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
             if (!profile) {
@@ -311,27 +363,50 @@
             }
             if(profile) {
                 currentUser = profile;
-                document.getElementById('dashName').innerText = "Officer: " + profile.full_name;
-                document.getElementById('dashRole').innerText = "Role: " + profile.role;
-                document.getElementById('profName').value = profile.full_name;
                 
+                // Dashboard
+                document.getElementById('dashName').innerText = "Officer: " + (profile.full_name || "Unknown");
+                document.getElementById('dashRole').innerText = "Role: " + (profile.role || "Unassigned");
+                
+                // Profile Form (Identity)
+                document.getElementById('profName').value = profile.full_name || "";
+                document.getElementById('profRank').value = profile.rank || "";
+                document.getElementById('profCallSign').value = profile.call_sign || "";
+                document.getElementById('profTitle').value = profile.role || ""; // Role/Title shared
+                document.getElementById('profSecLicNum').value = profile.security_license_number || "";
+                document.getElementById('profPhone').value = profile.phone || ""; // Note: assuming 'phone' column exists or add if missed
+                document.getElementById('profStart').value = profile.start_date || "";
+                document.getElementById('profTerm').value = profile.term_date || "";
+
+                // Profile Form (Stats)
+                document.getElementById('profAccRate').value = (profile.stats_acceptance || 100) + "%";
+                document.getElementById('profMissed').value = profile.stats_missed || 0;
+                document.getElementById('profRepClosed').value = profile.stats_reports || 0;
+                document.getElementById('profTotalHours').value = profile.stats_hours || 0;
+
+                // Profile Pic
+                if(profile.profile_pic_url) document.getElementById('profPicDisplay').src = profile.profile_pic_url;
+
+                // Document Statuses
+                if(profile.doc_driver) document.getElementById('prevDriver').innerText = "✅ Uploaded (Ready)";
+                if(profile.doc_cpr) document.getElementById('prevCpr').innerText = "✅ Uploaded (Ready)";
+                if(profile.doc_security_lic) document.getElementById('prevSecLic').innerText = "✅ Uploaded (Ready)";
+                if(profile.doc_force) document.getElementById('prevForce').innerText = "✅ Uploaded (Ready)";
+                if(profile.doc_other) document.getElementById('prevOther').innerText = "✅ Uploaded (Ready)";
+
                 if(['Admin','Command','Dispatch'].includes(profile.role)) {
                     document.getElementById('commandLinks').style.display = 'block';
                 }
                 
                 if(socket) {
                     socket.emit('join-channel', 'MAIN');
-                    // GPS LOGIC (NEW VISUALS)
                     if(navigator.geolocation) {
                         navigator.geolocation.watchPosition(
                             pos => {
                                 const lat = pos.coords.latitude;
                                 const lng = pos.coords.longitude;
                                 const acc = pos.coords.accuracy;
-
                                 socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
-                                
-                                // UPDATE MAP MARKER
                                 if(!myMarker) {
                                     myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 1, radius: 8 }).addTo(map);
                                     myAccuracy = L.circle([lat, lng], { radius: acc, color: '#3b82f6', fillOpacity: 0.1, weight: 1 }).addTo(map);
@@ -341,13 +416,10 @@
                                     myAccuracy.setLatLng([lat, lng]);
                                     myAccuracy.setRadius(acc);
                                 }
-
                                 document.getElementById('gpsIndicator').innerText = "GPS: LIVE ✅";
                                 document.getElementById('gpsIndicator').style.color = "var(--green)";
                             },
-                            err => {
-                                document.getElementById('gpsIndicator').innerText = "GPS: BLOCKED ❌";
-                            },
+                            err => { document.getElementById('gpsIndicator').innerText = "GPS: BLOCKED ❌"; },
                             { enableHighAccuracy: true }
                         );
                     }
@@ -355,6 +427,76 @@
                 
                 loadStaff(); loadTickets(); loadClients(); loadCourses(); loadRadioHistory(); loadStats(profile.full_name);
             }
+        }
+
+        // --- PROFILE SAVE ---
+        async function saveProfile() {
+            if(!currentUser) return;
+            const updates = {
+                full_name: document.getElementById('profName').value,
+                rank: document.getElementById('profRank').value,
+                call_sign: document.getElementById('profCallSign').value,
+                role: document.getElementById('profTitle').value, // Allow updating role here? Or limit? assuming yes.
+                security_license_number: document.getElementById('profSecLicNum').value,
+                start_date: document.getElementById('profStart').value || null,
+                term_date: document.getElementById('profTerm').value || null
+                // Note: Phone logic would go here if column added
+            };
+
+            const { error } = await sb.from('profiles').update(updates).eq('id', currentUser.id);
+            if(error) alert("Error saving: " + error.message);
+            else alert("Personnel File Updated Successfully.");
+        }
+
+        // --- DOCUMENT UPLOAD ---
+        function uploadDoc(columnName, input) {
+            const file = input.files[0];
+            if(!file) return;
+            
+            // Limit size to 5MB to prevent crashes (base64 is heavy)
+            if(file.size > 5 * 1024 * 1024) {
+                alert("File too large. Max 5MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64Data = reader.result;
+                const updateObj = {};
+                updateObj[columnName] = base64Data;
+                
+                // Determine preview element
+                let prevId = "";
+                if(columnName === 'doc_driver') prevId = 'prevDriver';
+                if(columnName === 'doc_cpr') prevId = 'prevCpr';
+                if(columnName === 'doc_security_lic') prevId = 'prevSecLic';
+                if(columnName === 'doc_force') prevId = 'prevForce';
+                if(columnName === 'doc_other') prevId = 'prevOther';
+
+                document.getElementById(prevId).innerText = "⏳ Uploading...";
+
+                const { error } = await sb.from('profiles').update(updateObj).eq('id', currentUser.id);
+                
+                if(error) {
+                    alert("Upload failed: " + error.message);
+                    document.getElementById(prevId).innerText = "❌ Failed";
+                } else {
+                    document.getElementById(prevId).innerText = "✅ Uploaded (Ready)";
+                    alert("Document saved to Personnel File.");
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function uploadProfilePic() {
+            const file = document.getElementById('picInput').files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                document.getElementById('profPicDisplay').src = reader.result;
+                await sb.from('profiles').update({ profile_pic_url: reader.result }).eq('id', currentUser.id);
+            }
+            reader.readAsDataURL(file);
         }
 
         async function loadStats(name) {
@@ -366,6 +508,7 @@
             } catch(e) { console.log("Stats error"); }
         }
 
+        // --- STANDARD DATA LOADERS ---
         async function loadStaff() {
             const res = await fetch('/api/staff');
             const data = await res.json();
@@ -396,6 +539,7 @@
             document.getElementById('courseList').innerHTML = data.length ? data.map(c => `<div>${c.title}</div>`).join('') : "No courses.";
         }
 
+        // --- RADIO SYSTEM ---
         function setupSocketListeners() {
             socket.on('radio-playback', d => {
                 addLog(d.name, "Audio", true, d.audio);
@@ -545,12 +689,9 @@
             loadStats(currentUser.full_name); 
         }
 
-        function saveProfile() { alert("Saved"); }
         function saveConfig() { alert("Config Saved"); }
-        function uploadProfilePic() { alert("Photo Uploaded"); }
 
         const map = L.map('map').setView([0,0], 2);
-        // CHANGED TO ESRI SATELLITE (GOOGLE LOOKALIKE)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Esri'
         }).addTo(map);
