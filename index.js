@@ -5,10 +5,18 @@ const { Server } = require("socket.io");
 const { createClient } = require("@supabase/supabase-js");
 require('dotenv').config();
 
+const RateLimit = require('express-rate-limit');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" }, maxHttpBufferSize: 5e7 }); // 50MB Limit
 const PORT = process.env.PORT || 3000;
+
+// Basic rate limiter for the root route
+const rootLimiter = RateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+});
 
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
@@ -136,5 +144,5 @@ app.post('/api/courses', async (req, res) => {
     res.json({ status: 'ok' });
 });
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/', rootLimiter, (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 server.listen(PORT, () => console.log(`✅ Evidentia MASTER Backend Active on port ${PORT}`));
