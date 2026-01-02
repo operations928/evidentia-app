@@ -13,55 +13,44 @@
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
         
         /* Layout */
-        .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 15px; z-index: 20; }
+        .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 15px; }
         .main { flex: 1; display: flex; flex-direction: column; position: relative; }
         
-        /* Modal for Role Selection */
+        /* Modal */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .role-card { background: var(--panel); padding: 30px; border-radius: 12px; width: 400px; text-align: center; border: 1px solid #334155; }
         .role-btn { width: 100%; padding: 15px; margin: 5px 0; background: #334155; border: 1px solid #475569; color: white; cursor: pointer; border-radius: 6px; font-size: 1rem; text-align: left; transition: 0.2s; }
-        .role-btn:hover { background: var(--accent); border-color: var(--accent); }
-        .role-icon { width: 30px; display: inline-block; text-align: center; margin-right: 10px; }
+        .role-btn:hover { background: var(--accent); }
 
-        /* Left Panel: Comms (Chat + PTT) */
+        /* Comms Panel */
         .comms-panel { width: 320px; background: #0b1120; border-right: 1px solid #334155; display: flex; flex-direction: column; }
         .chat-area { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem; }
         .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; }
         .chat-voice { border-left-color: var(--orange); cursor: pointer; }
-        .chat-voice:hover { background: rgba(245, 158, 11, 0.1); }
         
         .ptt-container { padding: 15px; background: var(--panel); border-top: 1px solid #334155; display: flex; flex-direction: column; gap: 10px; }
-        .ptt-btn { 
-            width: 100%; height: 80px; background: linear-gradient(145deg, #1e293b, #0f172a); 
-            border: 2px solid #475569; border-radius: 8px; color: #94a3b8; font-weight: bold; font-size: 1.2rem;
-            cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; gap: 10px;
-        }
+        .ptt-btn { width: 100%; height: 80px; background: linear-gradient(145deg, #1e293b, #0f172a); border: 2px solid #475569; border-radius: 8px; color: #94a3b8; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .ptt-btn.active { background: var(--orange); color: black; border-color: var(--orange); box-shadow: 0 0 15px var(--orange); }
-        
-        .input-row { display: flex; gap: 5px; }
         .text-input { flex: 1; background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 4px; }
 
-        /* Right Panel: Operations (Adaptive) */
+        /* Map & UI */
         .ops-panel { flex: 1; display: flex; flex-direction: column; }
         .map-area { flex: 1; background: #1e293b; position: relative; }
         #map { width: 100%; height: 100%; }
         
-        .dashboard-controls { height: 250px; background: var(--bg); border-top: 2px solid #334155; padding: 20px; display: flex; gap: 20px; overflow-x: auto; }
+        .dashboard-controls { height: 280px; background: var(--bg); border-top: 2px solid #334155; padding: 20px; overflow-x: auto; display: flex; gap: 20px; }
         
-        /* Responder Mode UI */
-        .responder-ui { display: none; width: 100%; gap: 20px; }
+        /* UI Variants */
+        .ui-group { display: none; width: 100%; gap: 20px; }
         .status-card { flex: 1; background: var(--panel); padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #334155; }
-        .big-stat { font-size: 2rem; font-weight: bold; margin: 10px 0; }
         .action-btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         
-        /* Dispatch Mode UI */
-        .dispatch-ui { display: none; width: 100%; }
-        .call-board { width: 100%; border-collapse: collapse; }
-        .call-board th { text-align: left; color: #94a3b8; padding: 5px; border-bottom: 1px solid #334155; }
-        .call-board td { padding: 8px 5px; border-bottom: 1px solid #334155; }
-
-        /* Settings Gear */
-        .settings-btn { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #64748b; cursor: pointer; font-size: 1.2rem; z-index: 1001; }
+        /* ADMIN TABLES */
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { text-align: left; color: #94a3b8; padding: 8px; border-bottom: 1px solid #475569; }
+        td { padding: 8px; border-bottom: 1px solid #334155; }
+        .admin-tab-btn { background: transparent; border: 1px solid #475569; color: #94a3b8; padding: 5px 10px; cursor: pointer; margin-right: 5px; border-radius: 4px; }
+        .admin-tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
     </style>
 </head>
 <body>
@@ -69,283 +58,73 @@
     <div class="modal-overlay" id="loginModal">
         <div class="role-card">
             <h2 style="color:var(--accent); margin-top:0;">Evidentia Login</h2>
-            <p style="color:#94a3b8; margin-bottom:20px;">Select your operational role to clock in.</p>
-            
             <input type="text" id="username" placeholder="Officer Name / ID" style="width:90%; padding:10px; margin-bottom:15px; background:#0f172a; border:1px solid #334155; color:white; border-radius:6px;">
-
-            <button class="role-btn" onclick="login('Responder')"><span class="role-icon">🚓</span> Responder (Patrol/Unit)</button>
-            <button class="role-btn" onclick="login('Dispatch')"><span class="role-icon">🎧</span> Dispatch / TOC</button>
-            <button class="role-btn" onclick="login('Command')"><span class="role-icon">⭐</span> Command / Supervisor</button>
-            <button class="role-btn" onclick="login('FTO')"><span class="role-icon">📋</span> Field Training Officer</button>
-            <button class="role-btn" onclick="login('Instructor')"><span class="role-icon">🎓</span> Instructor</button>
+            <button class="role-btn" onclick="login('Responder')">🚓 Responder</button>
+            <button class="role-btn" onclick="login('Dispatch')">🎧 Dispatch</button>
+            <button class="role-btn" onclick="login('Command')">⭐ Command / Admin</button>
+            <button class="role-btn" onclick="login('Instructor')">🎓 Instructor</button>
         </div>
     </div>
 
     <div class="comms-panel">
-        <div style="padding:15px; border-bottom:1px solid #334155; font-weight:bold;">
-            CH: MAIN DISPATCH <span id="gps-indicator" style="font-size:0.7rem; color:var(--green); float:right;">GPS: ACQUIRING...</span>
-        </div>
-        
+        <div style="padding:15px; border-bottom:1px solid #334155; font-weight:bold;">CH: MAIN DISPATCH</div>
         <div class="chat-area" id="chatArea">
-            <div class="chat-msg">System: Radio Archive Online. Click voice msgs to play.</div>
+            <div class="chat-msg">System: Radio Online.</div>
         </div>
-
         <div class="ptt-container">
-            <div class="input-row">
-                <input type="text" id="textInput" class="text-input" placeholder="Message TOC..." onkeypress="handleKey(event)">
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="textInput" class="text-input" placeholder="Message..." onkeypress="handleKey(event)">
                 <button onclick="sendText()" style="background:var(--accent); border:none; color:white; border-radius:4px; padding:0 10px;">➤</button>
             </div>
-            
-            <button id="pttBtn" class="ptt-btn">
-                <span>🎙️</span> <span id="pttText">PUSH TO TALK</span>
-            </button>
-            <div style="font-size:0.75rem; color:#64748b; text-align:center;">
-                Hardware Key: <span id="hwKeyLabel">[SPACE]</span> <a href="#" onclick="remapKey()" style="color:var(--accent); text-decoration:none;">(Change)</a>
-            </div>
+            <button id="pttBtn" class="ptt-btn"><span>🎙️</span> <span id="pttText">PUSH TO TALK</span></button>
         </div>
     </div>
 
     <div class="ops-panel">
-        <div class="map-area">
-            <button class="settings-btn" title="Settings">⚙️</button>
-            <div id="map"></div>
-        </div>
+        <div class="map-area"><div id="map"></div></div>
 
         <div class="dashboard-controls">
             
-            <div id="responderUI" class="responder-ui">
+            <div id="responderUI" class="ui-group">
                 <div class="status-card">
-                    <div style="color:#94a3b8; font-size:0.8rem;">CURRENT STATUS</div>
-                    <div class="big-stat" id="respStatus" style="color:var(--green)">STANDBY</div>
-                    <div style="font-size:0.8rem; color:#64748b;">Waiting for calls (Unpaid)</div>
+                    <div style="color:#94a3b8; font-size:0.8rem;">STATUS</div>
+                    <div id="respStatus" style="font-size:2rem; font-weight:bold; color:var(--green); margin:10px 0;">STANDBY</div>
+                    <div style="font-size:0.8rem;">Unpaid / Waiting</div>
                 </div>
-                
                 <div class="status-card" style="border-color:var(--accent);">
-                    <div style="color:var(--accent); font-weight:bold;">INCOMING CALL: ALARM #992</div>
-                    <div style="margin:10px 0;">Residential Alarm - 123 Main St</div>
-                    <button class="action-btn" style="background:var(--green); color:white;" onclick="missionAction('accept')">ACCEPT CALL</button>
-                    <div style="font-size:0.7rem; margin-top:5px;">Starts Pay & Driving Timer</div>
+                    <div style="color:var(--accent); font-weight:bold;">INCOMING: ALARM #992</div>
+                    <button class="action-btn" style="background:var(--green); color:white;" onclick="missionAction('accept')">ACCEPT (Start Pay)</button>
                 </div>
-
                 <div class="status-card">
-                    <div style="color:#94a3b8;">ACTIVE MISSION ACTIONS</div>
-                    <button class="action-btn" style="background:var(--orange);" onclick="missionAction('arrive')">ON SCENE (Stop Drive)</button>
-                    <button class="action-btn" style="background:var(--red); color:white;" onclick="missionAction('complete')">COMPLETE (End Pay)</button>
+                    <div style="color:#94a3b8;">ACTIONS</div>
+                    <button class="action-btn" style="background:var(--orange);" onclick="missionAction('arrive')">ARRIVED</button>
+                    <button class="action-btn" style="background:var(--red); color:white;" onclick="missionAction('complete')">COMPLETE</button>
                 </div>
             </div>
 
-            <div id="dispatchUI" class="dispatch-ui">
-                <h3 style="margin-top:0;">Active Call Board</h3>
-                <table class="call-board">
-                    <tr><th>ID</th><th>Type</th><th>Location</th><th>Assigned To</th><th>Status</th></tr>
-                    <tr><td>#102</td><td>Alarm</td><td>West Gate</td><td>Unit 101</td><td style="color:var(--orange)">En Route</td></tr>
-                    <tr><td>#103</td><td>Escort</td><td>ATM 44</td><td>Unit 202</td><td style="color:var(--green)">On Scene</td></tr>
-                </table>
-                <button class="action-btn" style="width:200px; background:var(--accent); color:white; margin-top:15px;">+ Create New Call</button>
+            <div id="adminUI" class="ui-group" style="flex-direction:column; overflow:hidden;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3 style="margin:0;">Command Dashboard</h3>
+                    <div>
+                        <button class="admin-tab-btn active" onclick="loadAdmin('timesheets')">Timesheets</button>
+                        <button class="admin-tab-btn" onclick="loadAdmin('metrics')">Pay Audit</button>
+                        <button class="admin-tab-btn" onclick="loadAdmin('radio')">Radio Logs</button>
+                    </div>
+                </div>
+                <div style="flex:1; overflow-y:auto; background:var(--panel); border:1px solid #334155; border-radius:6px; padding:10px;">
+                    <table id="adminTable">
+                        <tr><td>Select a tab to view data.</td></tr>
+                    </table>
+                </div>
             </div>
 
         </div>
     </div>
 
     <script>
-        // --- GLOBALS ---
         const socket = io();
-        let myRole = '';
-        let myName = '';
-        let currentLat = 0;
-        let currentLng = 0;
-        let pttKey = ' '; // Default Spacebar
-        let mediaRecorder;
-        let audioChunks = [];
+        let myName = '', myRole = '', currentLat = 0, currentLng = 0;
+        let mediaRecorder, audioChunks = [];
 
-        // --- 1. INITIALIZATION & GPS ---
-        const map = L.map('map').setView([45.4215, -75.6972], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-        
-        // Start GPS immediately
-        if(navigator.geolocation) {
-            navigator.geolocation.watchPosition(pos => {
-                currentLat = pos.coords.latitude;
-                currentLng = pos.coords.longitude;
-                document.getElementById('gps-indicator').innerText = `GPS: ${currentLat.toFixed(4)}, ${currentLng.toFixed(4)}`;
-                document.getElementById('gps-indicator').style.color = 'var(--green)';
-                
-                // Emit to server
-                if(myName) socket.emit('location-update', { lat: currentLat, lng: currentLng, status: 'Active' });
-            }, err => {
-                document.getElementById('gps-indicator').innerText = "GPS ERROR";
-                document.getElementById('gps-indicator').style.color = "var(--red)";
-            });
-        }
-
-        // --- 2. LOGIN LOGIC ---
-        function login(role) {
-            const name = document.getElementById('username').value;
-            if(!name) return alert("Enter Name");
-            
-            myName = name;
-            myRole = role;
-            
-            // UI Switch
-            document.getElementById('loginModal').style.display = 'none';
-            if(role === 'Responder' || role === 'FTO') {
-                document.getElementById('responderUI').style.display = 'flex';
-            } else {
-                document.getElementById('dispatchUI').style.display = 'block';
-            }
-
-            // Server Connect
-            socket.emit('unit-login', { name: myName, role: myRole, lat: currentLat, lng: currentLng });
-            
-            // DB Clock In
-            fetch('/api/clock', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ action: 'in', officer_name: myName, role: myRole, lat: currentLat, lng: currentLng })
-            });
-        }
-
-        // --- 3. COMMS (PTT & Chat) ---
-        // A. Setup Audio
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                audioChunks = [];
-                
-                // Convert to Base64 to send via Socket
-                const reader = new FileReader();
-                reader.readAsDataURL(blob);
-                reader.onloadend = () => {
-                    const base64data = reader.result;
-                    socket.emit('radio-voice', { 
-                        audio: base64data, 
-                        name: myName, 
-                        role: myRole,
-                        lat: currentLat, 
-                        lng: currentLng 
-                    });
-                    addChatLog("Me", "Sent Audio Transmission", true, base64data);
-                };
-            };
-        });
-
-        // B. Setup PTT UI Events
-        const btn = document.getElementById('pttBtn');
-        const startTx = () => { 
-            if(mediaRecorder && mediaRecorder.state === 'inactive') {
-                mediaRecorder.start();
-                btn.classList.add('active');
-                document.getElementById('pttText').innerText = "TRANSMITTING...";
-            }
-        };
-        const stopTx = () => {
-            if(mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                btn.classList.remove('active');
-                document.getElementById('pttText').innerText = "PUSH TO TALK";
-            }
-        };
-
-        // Mouse/Touch
-        btn.addEventListener('mousedown', startTx);
-        btn.addEventListener('mouseup', stopTx);
-        btn.addEventListener('touchstart', (e) => { e.preventDefault(); startTx(); });
-        btn.addEventListener('touchend', (e) => { e.preventDefault(); stopTx(); });
-
-        // Hardware Key Mapping
-        document.addEventListener('keydown', (e) => {
-            if(e.key === pttKey && document.activeElement.tagName !== 'INPUT') startTx();
-        });
-        document.addEventListener('keyup', (e) => {
-            if(e.key === pttKey) stopTx();
-        });
-
-        function remapKey() {
-            const newKey = prompt("Press a key to bind to PTT (e.g., z, Space, Control):");
-            if(newKey) {
-                pttKey = newKey;
-                document.getElementById('hwKeyLabel').innerText = `[${newKey.toUpperCase()}]`;
-            }
-        }
-
-        // C. Receive Comms
-        socket.on('radio-playback', (data) => {
-            addChatLog(data.name, "Incoming Transmission", true, data.audio);
-            const audio = new Audio(data.audio);
-            audio.play();
-        });
-
-        socket.on('radio-text-broadcast', (data) => {
-            addChatLog(data.name, data.msg, false);
-        });
-
-        function addChatLog(name, msg, isVoice, audioSrc) {
-            const area = document.getElementById('chatArea');
-            const div = document.createElement('div');
-            div.className = isVoice ? 'chat-msg chat-voice' : 'chat-msg';
-            
-            if(isVoice) {
-                div.innerHTML = `<b>${name}</b>: 🔊 Audio Log (Click to Replay) <span style="font-size:0.7rem; color:#94a3b8; float:right;">GPS Marked</span>`;
-                div.onclick = () => { new Audio(audioSrc).play(); };
-            } else {
-                div.innerHTML = `<b>${name}</b>: ${msg}`;
-            }
-            area.appendChild(div);
-            area.scrollTop = area.scrollHeight;
-        }
-
-        function sendText() {
-            const input = document.getElementById('textInput');
-            if(!input.value) return;
-            socket.emit('radio-text', { name: myName, msg: input.value, lat: currentLat, lng: currentLng });
-            input.value = '';
-        }
-        function handleKey(e) { if(e.key === 'Enter') sendText(); }
-
-        // --- 4. MAP UPDATES ---
-        const markers = {};
-        socket.on('map-update', (units) => {
-            for(let id in markers) map.removeLayer(markers[id]);
-            units.forEach(u => {
-                if(u.lat && u.lng) {
-                    const color = u.role === 'Dispatch' ? '#ef4444' : '#3b82f6';
-                    const marker = L.circleMarker([u.lat, u.lng], { color: color, radius: 8 }).addTo(map)
-                        .bindPopup(`<b>${u.name}</b><br>${u.role}`);
-                    markers[u.socketId] = marker;
-                }
-            });
-        });
-
-        // --- 5. METRICS (PAY LOGIC) ---
-        function missionAction(action) {
-            // Update UI State
-            if(action === 'accept') {
-                document.getElementById('respStatus').innerText = "EN ROUTE";
-                document.getElementById('respStatus').style.color = "var(--orange)";
-            } else if (action === 'arrive') {
-                document.getElementById('respStatus').innerText = "ON SCENE";
-                document.getElementById('respStatus').style.color = "var(--red)";
-            } else if (action === 'complete') {
-                document.getElementById('respStatus').innerText = "STANDBY";
-                document.getElementById('respStatus').style.color = "var(--green)";
-            }
-
-            // Send Metric to Server
-            fetch('/api/metrics', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    action: action, 
-                    call_id: 992, // Example ID, would be dynamic in real dispatch 
-                    officer_name: myName,
-                    lat: currentLat, 
-                    lng: currentLng 
-                })
-            });
-        }
-
-    </script>
-</body>
-</html>
+        // MAP
+        const map = L.map('map').setView([45.
