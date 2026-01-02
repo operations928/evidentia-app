@@ -21,7 +21,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 app.post('/api/chat', async (req, res) => {
     try {
         // FIX: Use 'gemini-1.0-pro' which is the specific version for the v1beta API
-        const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro"});
+        // The classic model that works on all library versions
+const model = genAI.getGenerativeModel({ model: "gemini-pro"});
         
         const prompt = `You are a security operations AI. Keep answers concise. User: ${req.body.message}`;
         const result = await model.generateContent(prompt);
