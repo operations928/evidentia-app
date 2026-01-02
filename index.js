@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-// NEW SDK IMPORT
 const { GoogleGenAI } = require("@google/genai");
 require('dotenv').config();
 
@@ -15,38 +14,27 @@ app.get('/api/config', (req, res) => {
     res.json({ status: "Online", mode: "Hub" });
 });
 
-// 2. Chat Endpoint (Using GEMINI 2.5 FLASH)
-// Initialize with the new SDK format
+// 2. Chat Endpoint (Gemini 2.5 Flash)
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 app.post('/api/chat', async (req, res) => {
     try {
-        // NEW SDK SYNTAX:
-        // 1. Use 'ai.models.generateContent'
-        // 2. Pass an object with 'model' and 'contents'
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.0-flash-exp", // Using the latest experimental Flash model
             contents: `You are a security operations AI for Evidentia. Concise answers. User: ${req.body.message}`
         });
-
-        // The new SDK returns text via the .text property (not a function)
         const text = response.text; 
-        
         res.json({ reply: text });
-        
     } catch (error) {
         console.error("AI Error:", error.message);
         res.json({ reply: "⚠️ AI Offline: " + error.message });
     }
 });
 
-// 3. Hub Data Endpoint
+// 3. Hub Data Endpoint (CLEARED)
 app.get('/api/incidents', (req, res) => {
-    res.json([
-        { id: 101, type: "Unauthorized Access", location: "Server-DB-04", status: "Critical" },
-        { id: 102, type: "Malware Detected", location: "Workstation-22", status: "Resolved" },
-        { id: 103, type: "Port Scan", location: "Gateway-North", status: "Monitoring" }
-    ]);
+    // Returning an empty array to clear the mock data
+    res.json([]); 
 });
 
 // 4. Serve the Hub UI
