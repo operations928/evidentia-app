@@ -21,6 +21,8 @@
         let currentChannel = 'MAIN';
         let isDispatched = false; 
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let myMarker = null; // GPS Marker
+        let myAccuracy = null; // GPS Radius
 
         // INIT
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
@@ -40,7 +42,7 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const { error } = await sb.auth.signInWithPassword({ email, password });
-            if(error) alert("Login Failed (Check Supabase Email Settings): " + error.message);
+            if(error) alert("Login Failed: " + error.message);
         }
 
         async function handleSignup() {
@@ -48,7 +50,7 @@
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) alert(error.message); else alert("Applied. If login fails, check Supabase 'Confirm Email' setting.");
+            if(error) alert(error.message); else alert("Applied.");
         }
 
         async function doLogout() { await sb.auth.signOut(); }
@@ -133,7 +135,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v7.0 STATS READY</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v8.0 PRECISION MAP</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -319,33 +321,42 @@
                 
                 if(socket) {
                     socket.emit('join-channel', 'MAIN');
-                    // GPS
+                    // GPS LOGIC (NEW VISUALS)
                     if(navigator.geolocation) {
                         navigator.geolocation.watchPosition(
                             pos => {
-                                socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat: pos.coords.latitude, lng: pos.coords.longitude });
-                                map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+                                const lat = pos.coords.latitude;
+                                const lng = pos.coords.longitude;
+                                const acc = pos.coords.accuracy;
+
+                                socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
+                                
+                                // UPDATE MAP MARKER
+                                if(!myMarker) {
+                                    myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 1, radius: 8 }).addTo(map);
+                                    myAccuracy = L.circle([lat, lng], { radius: acc, color: '#3b82f6', fillOpacity: 0.1, weight: 1 }).addTo(map);
+                                    map.setView([lat, lng], 16);
+                                } else {
+                                    myMarker.setLatLng([lat, lng]);
+                                    myAccuracy.setLatLng([lat, lng]);
+                                    myAccuracy.setRadius(acc);
+                                }
+
                                 document.getElementById('gpsIndicator').innerText = "GPS: LIVE ✅";
                                 document.getElementById('gpsIndicator').style.color = "var(--green)";
                             },
                             err => {
                                 document.getElementById('gpsIndicator').innerText = "GPS: BLOCKED ❌";
-                            }
+                            },
+                            { enableHighAccuracy: true }
                         );
                     }
                 }
                 
-                // LOAD ALL DATA
-                loadStaff();
-                loadTickets();
-                loadClients();
-                loadCourses();
-                loadRadioHistory();
-                loadStats(profile.full_name); // LOAD STATS
+                loadStaff(); loadTickets(); loadClients(); loadCourses(); loadRadioHistory(); loadStats(profile.full_name);
             }
         }
 
-        // NEW: LOAD STATS
         async function loadStats(name) {
             try {
                 const res = await fetch('/api/stats/' + name);
@@ -385,7 +396,6 @@
             document.getElementById('courseList').innerHTML = data.length ? data.map(c => `<div>${c.title}</div>`).join('') : "No courses.";
         }
 
-        // --- RADIO SYSTEM ---
         function setupSocketListeners() {
             socket.on('radio-playback', d => {
                 addLog(d.name, "Audio", true, d.audio);
@@ -532,7 +542,7 @@
             const nar = document.getElementById('repNar').value;
             await fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ officer_name:currentUser.full_name, type:'General', location:'HQ', narrative:nar }) });
             alert("Report Submitted");
-            loadStats(currentUser.full_name); // Refresh Stats
+            loadStats(currentUser.full_name); 
         }
 
         function saveProfile() { alert("Saved"); }
@@ -540,7 +550,10 @@
         function uploadProfilePic() { alert("Photo Uploaded"); }
 
         const map = L.map('map').setView([0,0], 2);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        // CHANGED TO ESRI SATELLITE (GOOGLE LOOKALIKE)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri'
+        }).addTo(map);
 
         function showTab(id) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab'));
