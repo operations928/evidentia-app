@@ -122,9 +122,162 @@
     </div>
 
     <script>
+        // --- 0. SAFETY CHECK ---
+        if (typeof io === 'undefined') {
+            alert("CRITICAL ERROR: The Radio System failed to load.\nPlease 'Clear Cache & Deploy' on Render to fix missing dependencies.");
+            throw new Error("Socket.io missing");
+        }
+
         const socket = io();
         let myName = '', myRole = '', currentLat = 0, currentLng = 0;
         let mediaRecorder, audioChunks = [];
 
-        // MAP
-        const map = L.map('map').setView([45.
+        // --- 1. LOGIN ---
+        // Pre-define login so it's ready when button is clicked
+        function login(role) {
+            const nameInput = document.getElementById('username');
+            if(!nameInput || !nameInput.value) return alert("Please Enter Officer Name or ID");
+            
+            myName = nameInput.value; 
+            myRole = role;
+            
+            // Hide Modal
+            document.getElementById('loginModal').style.display = 'none';
+
+            // Show UI based on role
+            if(role === 'Command' || role === 'Instructor') {
+                document.getElementById('adminUI').style.display = 'flex';
+                loadAdmin('timesheets'); 
+            } else {
+                document.getElementById('responderUI').style.display = 'flex';
+            }
+
+            // Connect
+            socket.emit('unit-login', { name: myName, role: myRole, lat: currentLat, lng: currentLng });
+            
+            // Clock In
+            fetch('/api/clock', { 
+                method: 'POST', 
+                headers: {'Content-Type':'application/json'}, 
+                body: JSON.stringify({ action: 'in', officer_name: myName, role: myRole, lat: currentLat, lng: currentLng }) 
+            }).catch(e => console.error("Clock in failed", e));
+        }
+
+        // --- 2. MAP ---
+        const map = L.map('map').setView([45.4215, -75.6972], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        const markers = {};
+
+        socket.on('map-update', (units) => {
+            for(let id in markers) map.removeLayer(markers[id]);
+            units.forEach(u => {
+                if(u.lat) markers[u.socketId] = L.circleMarker([u.lat, u.lng], { color: u.role==='Command'?'#f59e0b':'#3b82f6' }).addTo(map).bindPopup(u.name);
+            });
+        });
+
+        if(navigator.geolocation) {
+            navigator.geolocation.watchPosition(
+                pos => { currentLat=pos.coords.latitude; currentLng=pos.coords.longitude; },
+                err => console.log("GPS Denied")
+            );
+        }
+
+        // --- 3. AUDIO / COMMS ---
+        // Wrap in try-catch to prevent crash if mic is blocked
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(new Blob(audioChunks));
+                    reader.onloadend = () => {
+                        socket.emit('radio-voice', { audio: reader.result, name: myName, role: myRole, lat: currentLat, lng: currentLng });
+                        addChatLog("Me", "Audio Sent", true, reader.result);
+                    };
+                    audioChunks = [];
+                };
+            })
+            .catch(err => {
+                console.warn("Microphone access denied. PTT Disabled.");
+                document.getElementById('pttBtn').style.opacity = "0.5";
+                document.getElementById('pttText').innerText = "MIC BLOCKED";
+            });
+
+        const btn = document.getElementById('pttBtn');
+        const startTx = () => { if(mediaRecorder?.state==='inactive') { mediaRecorder.start(); btn.classList.add('active'); } };
+        const stopTx = () => { if(mediaRecorder?.state==='recording') { mediaRecorder.stop(); btn.classList.remove('active'); } };
+        
+        btn.onmousedown = startTx; 
+        btn.onmouseup = stopTx;
+        // Keyboard support (Spacebar)
+        document.onkeydown = e => { if(e.key === ' ' && document.activeElement.tagName !== 'INPUT') startTx(); };
+        document.onkeyup = e => { if(e.key === ' ') stopTx(); };
+
+        socket.on('radio-playback', d => { 
+            addChatLog(d.name, "Incoming", true, d.audio); 
+            new Audio(d.audio).play().catch(e => console.log("Auto-play blocked")); 
+        });
+        socket.on('radio-text-broadcast', d => addChatLog(d.name, d.msg, false));
+
+        function addChatLog(name, msg, isVoice, src) {
+            const div = document.createElement('div');
+            div.className = isVoice ? 'chat-msg chat-voice' : 'chat-msg';
+            div.innerHTML = `<b>${name}</b>: ${msg}`;
+            if(isVoice) div.onclick = () => new Audio(src).play();
+            document.getElementById('chatArea').appendChild(div);
+        }
+
+        function sendText() { 
+            const input = document.getElementById('textInput');
+            if(!input.value) return;
+            socket.emit('radio-text', { name: myName, msg: input.value, lat: currentLat, lng: currentLng }); 
+            input.value=''; 
+        }
+        function handleKey(e) { if(e.key==='Enter') sendText(); }
+
+        // --- 4. MISSION METRICS ---
+        function missionAction(act) {
+            if(act==='accept') { document.getElementById('respStatus').innerText="EN ROUTE"; document.getElementById('respStatus').style.color="var(--orange)"; }
+            else if(act==='arrive') { document.getElementById('respStatus').innerText="ON SCENE"; document.getElementById('respStatus').style.color="var(--red)"; }
+            else { document.getElementById('respStatus').innerText="STANDBY"; document.getElementById('respStatus').style.color="var(--green)"; }
+            
+            fetch('/api/metrics', { 
+                method: 'POST', 
+                headers: {'Content-Type':'application/json'}, 
+                body: JSON.stringify({ action: act, call_id: 992, officer_name: myName }) 
+            });
+        }
+
+        // --- 5. ADMIN LOADER ---
+        async function loadAdmin(type) {
+            const table = document.getElementById('adminTable');
+            table.innerHTML = '<tr><td>Loading data...</td></tr>';
+            try {
+                const res = await fetch(`/api/admin/${type}`);
+                const data = await res.json();
+                
+                if(type === 'timesheets') {
+                    table.innerHTML = `<tr><th>Officer</th><th>Role</th><th>In Time</th><th>Location</th></tr>`;
+                    data.forEach(r => table.innerHTML += `<tr><td>${r.officer_name}</td><td>${r.role_worked}</td><td>${new Date(r.clock_in).toLocaleTimeString()}</td><td>${r.lat?.toFixed(4)}, ${r.lng?.toFixed(4)}</td></tr>`);
+                } else if (type === 'metrics') {
+                    table.innerHTML = `<tr><th>Call</th><th>Officer</th><th>Response</th><th>Duration</th></tr>`;
+                    data.forEach(r => {
+                        const responseTime = r.accepted_at && r.on_scene_at ? Math.round((new Date(r.on_scene_at) - new Date(r.accepted_at))/60000) + 'm' : '-';
+                        const duration = r.completed_at && r.accepted_at ? Math.round((new Date(r.completed_at) - new Date(r.accepted_at))/60000) + 'm' : 'Active';
+                        table.innerHTML += `<tr><td>#${r.call_id}</td><td>${r.officer_name}</td><td>${responseTime}</td><td>${duration}</td></tr>`;
+                    });
+                } else if (type === 'radio') {
+                    table.innerHTML = `<tr><th>Sender</th><th>Type</th><th>Play</th></tr>`;
+                    data.forEach(r => {
+                        const btn = r.is_voice ? `<button onclick="new Audio('${r.audio_data}').play()" style="background:var(--accent);color:white;border:none;padding:5px;">▶</button>` : r.message;
+                        table.innerHTML += `<tr><td>${r.sender}</td><td>${r.is_voice?'Voice':'Text'}</td><td>${btn}</td></tr>`;
+                    });
+                }
+            } catch(e) {
+                table.innerHTML = '<tr><td>Error loading data.</td></tr>';
+            }
+        }
+    </script>
+</body>
+</html>
