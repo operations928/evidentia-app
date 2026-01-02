@@ -12,7 +12,7 @@
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
-        // Global State
+        // --- GLOBALS ---
         let sb = null;
         let socket = null;
         let currentUser = null;
@@ -22,7 +22,7 @@
         let isDispatched = false; 
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // Initialize Supabase
+        // --- INIT SUPABASE ---
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
@@ -30,14 +30,13 @@
             sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         } catch (e) { console.error("Supabase Init Error:", e); }
 
-        // Auth Functions
+        // --- AUTH FUNCTIONS ---
         function toggleAuth(mode) {
             document.getElementById('loginForm').style.display = mode==='login'?'block':'none';
             document.getElementById('signupForm').style.display = mode==='signup'?'block':'none';
         }
 
         async function handleLogin() {
-            if (!sb) return alert("System Error: Database failed to load.");
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const { error } = await sb.auth.signInWithPassword({ email, password });
@@ -53,7 +52,7 @@
         }
 
         async function doLogout() {
-            if(sb) await sb.auth.signOut(); 
+            await sb.auth.signOut();
         }
 
         async function clockOut() {
@@ -67,7 +66,6 @@
     </script>
     
     <style>
-        /* --- STYLES --- */
         :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f59e0b; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
@@ -78,9 +76,7 @@
         @media (max-width: 768px) {
             .sidebar { position: fixed; height: 100%; transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
-            .top-deck { height: 35% !important; }
             .radio-silo { display: none; } 
-            .bottom-deck { flex-direction: column; }
             .menu-toggle { display: block !important; }
         }
 
@@ -102,16 +98,12 @@
         .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
         .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); }
 
-        /* RADIO */
         .chat-log { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
         .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; font-size: 0.9rem; }
         .chat-voice { border-color: var(--orange); cursor: pointer; display: flex; align-items: center; gap: 10px; }
         
-        /* FIX: Flex buttons to prevent disappearing */
         .chan-btn { flex: 1; min-width: 50px; background:#333; border:1px solid #555; color:#aaa; padding:5px; cursor:pointer; font-weight:bold; font-size:0.7rem; white-space: nowrap; }
-        .chan-btn:hover { background:#444; }
         .active-chan { background:#00ff00; color:black; border-color:#00ff00; box-shadow:0 0 10px #00ff00; }
-        .locked-chan { background:#300; color:#500; cursor:not-allowed; border-color:#500; }
         
         .tactical-ptt { width:100%; height:80px; background:linear-gradient(#333, #111); border:2px solid #555; border-radius:8px; color:#aaa; cursor:pointer; transition:0.1s; }
         .tactical-ptt:active, .tactical-ptt.transmitting { background:#f59e0b; color:black; border-color:#f59e0b; box-shadow:0 0 15px #f59e0b; transform:scale(0.98); }
@@ -120,7 +112,12 @@
         .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
         
         .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-        .app-icon { background: var(--panel); border: 1px solid #334155; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; text-decoration: none; color: white; display: block; }
+        .app-icon { background: var(--panel); border: 1px solid #334155; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; text-decoration: none; color: white; display: block; font-size: 2rem; }
+        .app-icon span { display: block; font-size: 0.8rem; margin-top: 5px; color: #ccc; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 5px; }
+        td { padding: 8px 5px; border-bottom: 1px solid #334155; }
     </style>
 </head>
 <body>
@@ -152,7 +149,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:red;">v5.1 FIXED</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:red;">v6.0 FINAL</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -185,35 +182,31 @@
 
         <div class="bottom-deck">
             <div class="radio-silo" style="background:#111; border-right:2px solid #333; display:flex; flex-direction:column; font-family:'Courier New', monospace;">
-                
                 <div style="background:#000; padding:15px; border-bottom:2px solid #444;">
                     <div style="background:#0f380f; color:#00ff00; padding:10px; border:2px inset #0a2a0a; border-radius:4px; margin-bottom:10px;">
                         <div id="lcdChannel" style="font-size:1.5rem; font-weight:bold;">MAIN</div>
                         <div id="lcdStatus" style="font-size:0.7rem; margin-top:5px;">STANDBY</div>
                     </div>
-                    
                     <div style="display:flex; gap:5px;">
                         <button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>
                         <button onclick="changeChannel('TAC-1')" class="chan-btn" id="btnTac1">TAC-1</button>
                         <button onclick="changeChannel('LOUNGE')" class="chan-btn" id="btnLounge">LOUNGE</button>
                     </div>
                 </div>
-            
                 <div class="chat-log" id="chatArea" style="background:#1a1a1a; flex:1; padding:10px; font-size:0.8rem; font-family:sans-serif;"></div>
-            
                 <div class="ptt-box" style="background:#222; padding:15px; border-top:2px solid #444;">
                     <div style="display:flex; gap:5px; margin-bottom:10px;">
                         <input type="text" id="textInput" style="background:#000; color:#0f0; border:1px solid #444; padding:8px; flex:1;" placeholder="TXT...">
                         <button onclick="sendText()" style="background:#444; color:#fff; border:none; padding:0 15px; cursor:pointer;">SEND</button>
                     </div>
-                    
                     <button id="pttBtn" class="tactical-ptt">
                         <div style="font-size:1.2rem;">🎙️ PTT</div>
                         <div style="font-size:0.7rem;">HOLD TO TRANSMIT</div>
                     </button>
-                    
                     <div style="margin-top:10px; text-align:center;">
-                        <div id="audioStatus" style="color:#666; font-size:0.7rem;">System Ready</div>
+                        <button onclick="initMic()" id="audioUnlockBtn" style="background:transparent; border:1px solid #555; color:#f59e0b; font-size:0.7rem; padding:5px; cursor:pointer; width:100%;">
+                            ⚠️ CLICK TO CONNECT AUDIO & MIC
+                        </button>
                     </div>
                 </div>
             </div>
@@ -245,32 +238,53 @@
                     </div>
                 </div>
 
-                <div id="tab-tickets" class="tab-content"><h2>Tickets</h2><div class="card"><button class="btn btn-green" onclick="createTicket()">Create Ticket</button></div></div>
-                <div id="tab-clients" class="tab-content"><h2>Clients</h2><div class="card"><button class="btn btn-blue" onclick="addClient()">Add Client</button></div></div>
+                <div id="tab-tickets" class="tab-content">
+                    <h2>Tickets</h2>
+                    <div class="card">
+                        <input type="text" id="tickDesc" class="form-input" placeholder="Ticket Description">
+                        <button class="btn btn-green" onclick="createTicket()">Create Ticket</button>
+                    </div>
+                    <div class="card"><div id="ticketList">Loading...</div></div>
+                </div>
+
+                <div id="tab-clients" class="tab-content">
+                    <h2>Clients</h2>
+                    <div class="card">
+                        <input type="text" id="cliName" class="form-input" placeholder="Client Name">
+                        <button class="btn btn-blue" onclick="addClient()">Add Client</button>
+                    </div>
+                    <div class="card"><div id="clientList">Loading...</div></div>
+                </div>
+
                 <div id="tab-staff" class="tab-content"><h2>Staff</h2><div class="card"><div id="staffList">Loading...</div></div></div>
-                <div id="tab-admin" class="tab-content"><h2>Config</h2><div class="card"><button class="btn btn-blue" onclick="saveConfig()">Update Config</button></div></div>
-                <div id="tab-reports" class="tab-content"><h2>Reports</h2><div class="card"><button class="btn btn-blue" onclick="submitReport()">Submit</button></div></div>
-                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="card">Apps loaded</div></div>
-                <div id="tab-training" class="tab-content"><h2>Training</h2><div class="card">Courses</div></div>
+                
+                <div id="tab-apps" class="tab-content">
+                    <h2>Apps</h2>
+                    <div class="app-grid">
+                        <a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a>
+                        <a href="https://map.navdrone.ca" target="_blank" class="app-icon">🚁<span>NavDrone</span></a>
+                        <a href="https://app.connecteam.com" target="_blank" class="app-icon">📱<span>Connecteam</span></a>
+                        <a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a>
+                    </div>
+                </div>
+
+                <div id="tab-training" class="tab-content"><h2>Training</h2><div id="courseList" class="card">Loading courses...</div></div>
+                <div id="tab-reports" class="tab-content"><h2>Reports</h2><div class="card"><textarea id="repNar" class="form-input" rows="4" placeholder="Report Narrative"></textarea><button class="btn btn-blue" onclick="submitReport()">Submit</button></div></div>
                 <div id="tab-timesheet" class="tab-content"><h2>Timesheet</h2><div class="card">History</div></div>
+                <div id="tab-admin" class="tab-content"><h2>Config</h2><div class="card"><button class="btn btn-blue" onclick="saveConfig()">Update Config</button></div></div>
             </div>
         </div>
     </div>
 
     <script>
-        // Init Logic runs after DOM load
         window.onload = () => {
-            // 1. Check Socket
             if(typeof io !== 'undefined') {
                 socket = io();
                 setupSocketListeners();
             } else {
                 console.warn("Socket.io not loaded.");
-                document.getElementById('lcdStatus').innerText = "OFFLINE";
-                document.getElementById('lcdStatus').style.color = "red";
             }
 
-            // 2. Auth State Listener
             if(sb) {
                 sb.auth.onAuthStateChange(async (event, session) => {
                     if (event === 'SIGNED_IN' && session) {
@@ -285,29 +299,24 @@
             }
         };
 
-        // --- CORE FUNCTIONS ---
+        // --- DATA LOADING (RESTORED) ---
         async function fetchProfile(uid, email) {
             let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
-            
-            // Auto-create profile
             if (!profile) {
                 await sb.from('profiles').insert([{ id: uid, email: email, full_name: "Officer", role: "Unassigned" }]);
                 const res = await sb.from('profiles').select('*').eq('id', uid).single();
                 profile = res.data;
             }
-
             if(profile) {
                 currentUser = profile;
                 document.getElementById('dashName').innerText = "Officer: " + profile.full_name;
                 document.getElementById('dashRole').innerText = "Role: " + profile.role;
-                if(profile.profile_pic_url) document.getElementById('profPicDisplay').src = profile.profile_pic_url;
                 document.getElementById('profName').value = profile.full_name;
-
+                
                 if(['Admin','Command','Dispatch'].includes(profile.role)) {
                     document.getElementById('commandLinks').style.display = 'block';
                 }
                 
-                // Join Radio
                 if(socket) {
                     socket.emit('join-channel', 'MAIN');
                     if(navigator.geolocation) navigator.geolocation.watchPosition(pos => {
@@ -315,8 +324,44 @@
                         map.setView([pos.coords.latitude, pos.coords.longitude], 15);
                     });
                 }
+                
+                // Load Data
+                loadStaff();
+                loadTickets();
+                loadClients();
+                loadCourses();
+                loadRadioHistory();
             }
-            loadRadioHistory();
+        }
+
+        async function loadStaff() {
+            const res = await fetch('/api/staff');
+            const data = await res.json();
+            const div = document.getElementById('staffList');
+            if(data.length === 0) { div.innerHTML = "No staff found."; return; }
+            let html = '<table style="width:100%; border-collapse:collapse;"><tr><th>Name</th><th>Role</th></tr>';
+            data.forEach(u => html += `<tr><td style="padding:8px; border-bottom:1px solid #333">${u.full_name}</td><td style="padding:8px; border-bottom:1px solid #333">${u.role}</td></tr>`);
+            div.innerHTML = html + '</table>';
+        }
+
+        async function loadTickets() {
+            const res = await fetch('/api/tickets');
+            const data = await res.json();
+            const div = document.getElementById('ticketList');
+            div.innerHTML = data.length ? data.map(t => `<div style="padding:10px; border-bottom:1px solid #333">${t.description} (${t.priority})</div>`).join('') : "No tickets.";
+        }
+
+        async function loadClients() {
+            const res = await fetch('/api/clients');
+            const data = await res.json();
+            const div = document.getElementById('clientList');
+            div.innerHTML = data.length ? data.map(c => `<div style="padding:10px; border-bottom:1px solid #333">${c.name}</div>`).join('') : "No clients.";
+        }
+        
+        async function loadCourses() {
+            const res = await fetch('/api/courses');
+            const data = await res.json();
+            document.getElementById('courseList').innerHTML = data.length ? data.map(c => `<div>${c.title}</div>`).join('') : "No courses.";
         }
 
         // --- RADIO SYSTEM (FIXED) ---
@@ -333,10 +378,10 @@
             socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false));
         }
 
-        // AUTO-INIT MIC ON PTT
+        // THE MISSING FUNCTION (RESTORED)
         function initMic() {
             return new Promise((resolve, reject) => {
-                if(mediaRecorder) return resolve(mediaRecorder);
+                if(mediaRecorder && mediaRecorder.state !== 'inactive') return resolve(mediaRecorder);
                 
                 navigator.mediaDevices.getUserMedia({audio:true}).then(s => {
                     if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -346,17 +391,16 @@
                         const reader = new FileReader();
                         reader.readAsDataURL(new Blob(audioChunks));
                         reader.onloadend = () => { 
-                            if(currentUser && socket) {
+                            if(currentUser && socket && audioChunks.length > 0) {
                                 socket.emit('radio-voice',{audio:reader.result, name:currentUser.full_name, channel: currentChannel, lat:0, lng:0}); 
                                 addLog("Me", "Audio", true, reader.result); 
-                            } else {
-                                alert("Transmission failed: Not connected.");
                             }
                         };
                         audioChunks=[];
                     };
-                    document.getElementById('audioStatus').innerText = "Mic Active";
-                    document.getElementById('audioStatus').style.color = "green";
+                    document.getElementById('audioUnlockBtn').innerText = "✅ AUDIO SYSTEM ACTIVE";
+                    document.getElementById('audioUnlockBtn').style.color = "#10b981";
+                    document.getElementById('audioUnlockBtn').style.borderColor = "#10b981";
                     resolve(mediaRecorder);
                 }).catch(e => {
                     alert("Mic Access Denied! Check Browser Settings.");
@@ -371,7 +415,6 @@
             const gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            
             osc.frequency.setValueAtTime(type==='ptt-on'?600:800, audioCtx.currentTime);
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
             osc.start(); osc.stop(audioCtx.currentTime + 0.1);
@@ -409,25 +452,24 @@
             }
         }
 
-        function changeChannel(newChan) {
-            if (newChan === 'LOUNGE' && isDispatched) return alert("ACCESS DENIED");
-            currentChannel = newChan;
-            if(socket) socket.emit('join-channel', currentChannel);
-            document.getElementById('lcdChannel').innerText = currentChannel;
+        function changeChannel(ch) {
+            if (ch === 'LOUNGE' && isDispatched) return alert("ACCESS DENIED");
+            currentChannel = ch;
+            if(socket) socket.emit('join-channel', ch);
+            document.getElementById('lcdChannel').innerText = ch;
             document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan'));
-            if(newChan === 'MAIN') document.getElementById('btnMain').classList.add('active-chan');
-            if(newChan === 'TAC-1') document.getElementById('btnTac1').classList.add('active-chan');
-            if(newChan === 'LOUNGE') document.getElementById('btnLounge').classList.add('active-chan');
+            if(ch==='MAIN') document.getElementById('btnMain').classList.add('active-chan');
+            if(ch==='TAC-1') document.getElementById('btnTac1').classList.add('active-chan');
+            if(ch==='LOUNGE') document.getElementById('btnLounge').classList.add('active-chan');
         }
 
-        // PTT Button Logic (Revised)
+        // PTT LOGIC (NOW CALLS INITMIC SAFELY)
         const pttBtn = document.getElementById('pttBtn');
         
         pttBtn.onmousedown = pttBtn.ontouchstart = async (e) => {
-            e.preventDefault(); // Prevent text selection
+            e.preventDefault(); 
             try {
-                // Ensure Mic is Ready FIRST
-                await initMic();
+                await initMic(); // Ensures mic is ready
                 if (mediaRecorder.state === 'inactive') {
                     playSound('ptt-on');
                     mediaRecorder.start();
@@ -435,9 +477,7 @@
                     document.getElementById('lcdStatus').innerText = "TX...";
                     document.getElementById('lcdStatus').style.color = "red";
                 }
-            } catch(e) {
-                console.error("PTT Fail", e);
-            }
+            } catch(e) { console.error("PTT Fail", e); }
         };
 
         pttBtn.onmouseup = pttBtn.ontouchend = (e) => {
@@ -459,14 +499,28 @@
             } catch(e) {}
         }
 
-        // MOCK UTILS
+        // DATA ACTIONS
+        async function createTicket() {
+            const desc = document.getElementById('tickDesc').value;
+            await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:null, type:'General', priority:'Normal', description:desc }) });
+            loadTickets();
+        }
+        
+        async function addClient() {
+            const name = document.getElementById('cliName').value;
+            await fetch('/api/clients', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, phone:'-', address:'-' }) });
+            loadClients();
+        }
+
+        async function submitReport() {
+            const nar = document.getElementById('repNar').value;
+            await fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ officer_name:currentUser.full_name, type:'General', location:'HQ', narrative:nar }) });
+            alert("Report Submitted");
+        }
+
         function saveProfile() { alert("Saved"); }
-        function createTicket() { alert("Ticket Created"); }
-        function addClient() { alert("Client Added"); }
         function saveConfig() { alert("Config Saved"); }
-        function submitReport() { alert("Report Submitted"); }
         function uploadProfilePic() { alert("Photo Uploaded"); }
-        async function loadConfig() { fetch('/api/config/incident_types'); }
 
         const map = L.map('map').setView([0,0], 2);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
@@ -477,6 +531,11 @@
             document.getElementById('tab-'+id).classList.add('active-tab');
             event.currentTarget.classList.add('active');
             if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open');
+            
+            // Reload data on tab switch
+            if(id === 'staff') loadStaff();
+            if(id === 'tickets') loadTickets();
+            if(id === 'clients') loadClients();
         }
     </script>
 </body>
