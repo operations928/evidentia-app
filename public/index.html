@@ -380,6 +380,96 @@
             event.currentTarget.classList.add('active');
             if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open');
         }
-    </script>
+    </script>// --- TACTICAL RADIO LOGIC 2.0 ---
+let currentChannel = 'MAIN';
+let isDispatched = false; // Toggle this based on tickets
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// 1. SOUND GENERATOR (No files needed!)
+function playSound(type) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === 'ptt-on') {
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    } else if (type === 'ptt-off') { // Roger Beep
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+    }
+}
+
+// 2. CHANNEL SWITCHING
+function changeChannel(newChan) {
+    // Lounge Lockout Logic
+    if (newChan === 'LOUNGE' && isDispatched) {
+        alert("ACCESS DENIED: You are dispatched to a call.");
+        return;
+    }
+
+    currentChannel = newChan;
+    socket.emit('join-channel', currentChannel);
+    
+    // UI Update
+    document.getElementById('lcdChannel').innerText = currentChannel;
+    document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan'));
+    
+    if(newChan === 'MAIN') document.getElementById('btnMain').classList.add('active-chan');
+    if(newChan === 'TAC-1') document.getElementById('btnTac1').classList.add('active-chan');
+    if(newChan === 'LOUNGE') document.getElementById('btnLounge').classList.add('active-chan');
+}
+
+// 3. PTT LOGIC
+const pttBtn = document.getElementById('pttBtn');
+
+pttBtn.onmousedown = pttBtn.ontouchstart = () => {
+    if (mediaRecorder?.state === 'inactive') {
+        playSound('ptt-on');
+        mediaRecorder.start();
+        pttBtn.classList.add('transmitting');
+        document.getElementById('lcdStatus').innerText = "TRANSMITTING...";
+        document.getElementById('lcdStatus').style.color = "red";
+    }
+};
+
+pttBtn.onmouseup = pttBtn.ontouchend = () => {
+    if (mediaRecorder?.state === 'recording') {
+        mediaRecorder.stop();
+        playSound('ptt-off'); // Roger beep
+        pttBtn.classList.remove('transmitting');
+        document.getElementById('lcdStatus').innerText = "STANDBY";
+        document.getElementById('lcdStatus').style.color = "#00ff00";
+    }
+};
+
+// 4. HANDLE INCOMING
+socket.on('radio-playback', d => {
+    addLog(d.name, "Audio", true, d.audio);
+    if(d.audio && d.audio.length > 50) {
+        playSound('ptt-on'); // Squelch open
+        let snd = new Audio(d.audio);
+        snd.onended = () => playSound('ptt-off'); // Squelch close
+        snd.play().catch(e => console.log("Audio permission needed"));
+    }
+});
+
+// 5. UPDATE LOCK STATUS (Call this when a ticket is assigned)
+function updateDispatchStatus(status) {
+    isDispatched = (status === 'Dispatched');
+    const loungeBtn = document.getElementById('btnLounge');
+    if(isDispatched) {
+        loungeBtn.classList.add('locked-chan');
+        if(currentChannel === 'LOUNGE') changeChannel('MAIN'); // Kick them out
+    } else {
+        loungeBtn.classList.remove('locked-chan');
+    }
+}
 </body>
 </html>
