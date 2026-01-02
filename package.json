@@ -1,17 +1,15 @@
 {
-  "name": "evidentia-app",
+  "name": "my-express-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "Express server with Supabase for Vercel",
   "main": "index.js",
- "scripts": { "start": "node index.js" },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "@supabase/supabase-js": "^2.89.0",
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1"
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.38.4"
   }
 }
