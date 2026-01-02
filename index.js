@@ -24,7 +24,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 app.post('/api/chat', async (req, res) => {
     try {
         // Updated model to prevent 500 errors
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+        const model = genAI.getGenerativeModel({ model: "gemini-pro"});
         
         const prompt = `You are a helpful Security Operations assistant for Evidentia Security. 
                         Keep answers concise and professional. 
@@ -54,3 +54,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
