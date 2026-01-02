@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
+// Initialize Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 let activeUnits = {}; 
 
@@ -24,31 +25,27 @@ io.on('connection', (socket) => {
         io.emit('map-update', Object.values(activeUnits));
     });
 
-    // 2. RADIO VOICE
+    // 2. GPS
+    socket.on('location-update', (data) => {
+        if (activeUnits[socket.id]) {
+            Object.assign(activeUnits[socket.id], data);
+            io.emit('map-update', Object.values(activeUnits));
+        }
+    });
+
+    // 3. RADIO (Voice & Text)
     socket.on('radio-voice', async (data) => {
-        // Broadcast to everyone else (excluding sender)
         socket.broadcast.emit('radio-playback', data);
-        
-        // Save to DB
         await supabase.from('radio_logs').insert([{ 
-            sender: data.name, 
-            message: '[AUDIO TRANSMISSION]', 
-            is_voice: true, 
-            audio_data: data.audio, // Base64 Audio
-            lat: data.lat, 
-            lng: data.lng 
+            sender: data.name, message: '[AUDIO]', is_voice: true, 
+            audio_data: data.audio, lat: data.lat, lng: data.lng 
         }]);
     });
     
-    // 3. RADIO TEXT
     socket.on('radio-text', async (data) => {
-        io.emit('radio-text-broadcast', data); // Send to everyone including sender
+        io.emit('radio-text-broadcast', data);
         await supabase.from('radio_logs').insert([{ 
-            sender: data.name, 
-            message: data.msg, 
-            is_voice: false, 
-            lat: data.lat, 
-            lng: data.lng 
+            sender: data.name, message: data.msg, is_voice: false, lat: data.lat, lng: data.lng 
         }]);
     });
 
@@ -60,55 +57,78 @@ io.on('connection', (socket) => {
 
 // --- API ROUTES ---
 
-// 1. CONFIG (Fixes Report Dropdown)
-app.get('/api/config/:key', async (req, res) => {
-    const { data } = await supabase.from('app_config').select('value').eq('key', req.params.key).single();
-    // Default fallback if DB is empty
-    const fallback = ["General Report", "Alarm", "Patrol", "Incident"];
-    res.json(data ? data.value : fallback);
+// 1. DATA FETCHING
+app.get('/api/radio-history', async (req, res) => {
+    const { data } = await supabase.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(50);
+    res.json(data ? data.reverse() : []);
 });
 
-// 2. PROFILE UPDATE (Fixes Profile Pic)
+app.get('/api/config/:key', async (req, res) => {
+    const { data } = await supabase.from('app_config').select('value').eq('key', req.params.key).single();
+    res.json(data ? data.value : ["General", "Patrol", "Alarm", "Incident"]);
+});
+
+// 2. PROFILE & STAFF
 app.post('/api/profile/update', async (req, res) => {
     const { id, updates } = req.body;
     const { error } = await supabase.from('profiles').update(updates).eq('id', id);
     res.json({ status: error ? 'error' : 'updated' });
 });
 
-// 3. STATS & HISTORY
-app.get('/api/radio-history', async (req, res) => {
-    const { data } = await supabase.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(20);
-    res.json(data ? data.reverse() : []);
+app.get('/api/staff', async (req, res) => {
+    const { data } = await supabase.from('profiles').select('*');
+    res.json(data || []);
 });
 
-app.get('/api/stats/:name', async (req, res) => {
-    const name = req.params.name;
-    const { count } = await supabase.from('field_reports').select('*', { count: 'exact' }).eq('officer_name', name);
-    // Simple mock calculation for hours to prevent crash if timesheets empty
-    res.json({ reports: count || 0, hours: "0.0" });
+// 3. CRM (Clients & Tickets)
+app.get('/api/clients', async (req, res) => {
+    const { data } = await supabase.from('clients').select('*');
+    res.json(data || []);
+});
+app.post('/api/clients', async (req, res) => {
+    const { name, phone, address } = req.body;
+    const { error } = await supabase.from('clients').insert([{ name, phone, address }]);
+    res.json({ status: error ? 'error' : 'ok' });
 });
 
-// 4. CLOCK IN/OUT
+app.get('/api/tickets', async (req, res) => {
+    const { data } = await supabase.from('tickets').select('*, clients(name)');
+    res.json(data || []);
+});
+app.post('/api/tickets', async (req, res) => {
+    const { client_id, type, priority, description } = req.body;
+    const { error } = await supabase.from('tickets').insert([{ client_id, type, priority, description }]);
+    res.json({ status: error ? 'error' : 'ok' });
+});
+
+// 4. OPS (Clock, Reports, Licenses, Courses)
 app.post('/api/clock', async (req, res) => {
     const { action, officer_name, role, lat, lng } = req.body;
-    if (action === 'in') {
-        await supabase.from('timesheets').insert([{ officer_name, role_worked: role, lat, lng, clock_in: new Date() }]);
-    } else {
-        // Close the most recent open shift
-        await supabase.from('timesheets')
-            .update({ clock_out: new Date() })
-            .eq('officer_name', officer_name)
-            .is('clock_out', null);
-    }
+    if (action === 'in') await supabase.from('timesheets').insert([{ officer_name, role_worked: role, lat, lng, clock_in: new Date() }]);
+    else await supabase.from('timesheets').update({ clock_out: new Date() }).eq('officer_name', officer_name).is('clock_out', null);
     res.json({ status: 'success' });
 });
 
-// 5. GENERIC INSERTS
+app.get('/api/licenses/:uid', async (req, res) => {
+    const { data } = await supabase.from('licenses').select('*').eq('user_id', req.params.uid);
+    res.json(data || []);
+});
+
+app.get('/api/courses', async (req, res) => {
+    const { data } = await supabase.from('courses').select('*');
+    res.json(data || []);
+});
+app.post('/api/courses', async (req, res) => {
+    const { title, url, role, creator_id } = req.body;
+    await supabase.from('courses').insert([{ title, content_url: url, required_role: role, created_by: creator_id }]);
+    res.json({ status: 'ok' });
+});
+
 app.post('/api/reports', async (req, res) => {
     const { officer_name, type, location, narrative } = req.body;
-    const { error } = await supabase.from('field_reports').insert([{ officer_name, incident_type: type, location, narrative }]);
+    await supabase.from('field_reports').insert([{ officer_name, incident_type: type, location, narrative }]);
     res.json({ status: 'ok' });
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-server.listen(PORT, () => console.log(`✅ Evidentia Fixed on port ${PORT}`));
+server.listen(PORT, () => console.log(`✅ Evidentia TOC Active on port ${PORT}`));
