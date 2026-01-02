@@ -3,229 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evidentia Security Ops</title>
+    <title>Evidentia Hub</title>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --border: #334155;
-        }
+        :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+        
+        .sidebar { width: 260px; background: var(--panel); padding: 25px; border-right: 1px solid #334155; display: flex; flex-direction: column; gap: 20px; }
+        .logo { font-size: 1.4rem; font-weight: bold; color: var(--accent); letter-spacing: 1px; margin-bottom: 10px; }
+        .stat-card { background: #334155; padding: 15px; border-radius: 8px; border: 1px solid #475569; }
+        .stat-val { font-size: 1.8rem; font-weight: bold; margin: 5px 0; }
+        
+        .main { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 15px; }
+        .badge { background: #064e3b; color: #34d399; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 500; }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 800px;
-            padding: 2rem;
-        }
-
-        header {
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1rem;
-            margin-bottom: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
-        .status-badge {
-            font-size: 0.85rem;
-            background: #064e3b;
-            color: #34d399;
-            padding: 4px 12px;
-            border-radius: 99px;
-            display: none; /* Hidden until connected */
-        }
-
-        /* Chat Interface */
-        .chat-window {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            height: 500px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .messages {
-            flex: 1;
-            padding: 1.5rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .message {
-            max-width: 80%;
-            padding: 10px 16px;
-            border-radius: 12px;
-            line-height: 1.5;
-            font-size: 0.95rem;
-        }
-
-        .message.user {
-            align-self: flex-end;
-            background-color: var(--accent);
-            color: white;
-            border-bottom-right-radius: 2px;
-        }
-
-        .message.ai {
-            align-self: flex-start;
-            background-color: #334155;
-            color: var(--text-primary);
-            border-bottom-left-radius: 2px;
-        }
-
-        .input-area {
-            border-top: 1px solid var(--border);
-            padding: 1rem;
-            background: var(--bg-color);
-            display: flex;
-            gap: 10px;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            padding: 12px;
-            border-radius: 6px;
-            color: white;
-            outline: none;
-        }
-
-        input[type="text"]:focus { border-color: var(--accent); }
-
-        button {
-            background-color: var(--accent);
-            color: white;
-            border: none;
-            padding: 0 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background 0.2s;
-        }
-
-        button:hover { background-color: var(--accent-hover); }
-        button:disabled { background-color: var(--border); cursor: not-allowed; }
+        .grid { display: flex; flex: 1; gap: 20px; overflow: hidden; }
+        
+        /* Left Panel: Incidents */
+        .incident-panel { flex: 1; background: var(--panel); border-radius: 12px; padding: 20px; overflow-y: auto; border: 1px solid #334155; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { text-align: left; color: #94a3b8; font-size: 0.9rem; padding: 10px 0; border-bottom: 1px solid #475569; }
+        td { padding: 15px 0; border-bottom: 1px solid #334155; font-size: 0.95rem; }
+        
+        /* Right Panel: Chat */
+        .chat-panel { flex: 1; background: var(--panel); border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #334155; overflow: hidden; }
+        .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .msg { padding: 12px 16px; border-radius: 8px; max-width: 85%; font-size: 0.95rem; line-height: 1.5; }
+        .msg.user { align-self: flex-end; background: var(--accent); color: white; }
+        .msg.ai { align-self: flex-start; background: #334155; border: 1px solid #475569; }
+        
+        .input-area { padding: 15px; background: var(--bg); display: flex; gap: 10px; border-top: 1px solid #334155; }
+        input { flex: 1; background: #334155; border: 1px solid #475569; padding: 12px; border-radius: 6px; color: white; outline: none; }
+        input:focus { border-color: var(--accent); }
+        button { background: var(--accent); color: white; border: none; padding: 0 25px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        button:hover { background: #2563eb; }
 
     </style>
 </head>
 <body>
+    <div class="sidebar">
+        <div class="logo">EVIDENTIA HUB</div>
+        <div class="stat-card">
+            <div style="color:#94a3b8; font-size:0.9rem">Active Threats</div>
+            <div class="stat-val" style="color: var(--red)">3</div>
+            <div style="font-size:0.8rem; opacity:0.7">High Priority</div>
+        </div>
+        <div class="stat-card">
+            <div style="color:#94a3b8; font-size:0.9rem">System Health</div>
+            <div class="stat-val" style="color: var(--green)">98%</div>
+            <div style="font-size:0.8rem; opacity:0.7">Operational</div>
+        </div>
+    </div>
 
-    <div class="container">
-        <header>
-            <div>
-                <h1>EVIDENTIA</h1>
-                <span style="color: var(--text-secondary); font-size: 0.9rem;">Security Operations Center</span>
+    <div class="main">
+        <div class="header">
+            <h2 style="margin:0">Security Operations Center</h2>
+            <div class="badge">● Live System</div>
+        </div>
+
+        <div class="grid">
+            <div class="incident-panel">
+                <h3 style="margin-top:0">Recent Alerts</h3>
+                <table id="incidentTable">
+                    <tr><th>Type</th><th>Location</th><th>Status</th></tr>
+                    <tr><td colspan="3">Loading data...</td></tr>
+                </table>
             </div>
-            <div id="status" class="status-badge">● System Online</div>
-        </header>
 
-        <main>
-            <div class="chat-window">
+            <div class="chat-panel">
                 <div class="messages" id="messages">
-                    <div class="message ai">
-                        Hello. I am the Evidentia Security Assistant. How can I assist with your operations today?
-                    </div>
+                    <div class="msg ai">Evidentia Assistant online. Ready for queries.</div>
                 </div>
                 <div class="input-area">
-                    <input type="text" id="userInput" placeholder="Ask about security protocols, logs, or threats..." autocomplete="off">
-                    <button id="sendBtn" onclick="sendMessage()">Send</button>
+                    <input type="text" id="userInput" placeholder="Ask about threats, logs, or protocols..." onkeypress="handleKey(event)">
+                    <button onclick="sendMessage()">Send</button>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
 
     <script>
-        const messagesDiv = document.getElementById('messages');
-        const inputField = document.getElementById('userInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const statusBadge = document.getElementById('status');
-
-        console.log("Evidentia Script Loaded"); 
-
-        // 1. Check Backend Connection
-        fetch('/api/config')
-            .then(response => {
-                if (response.ok) {
-                    statusBadge.style.display = 'block';
-                    console.log("Backend Connected");
-                }
-            })
-            .catch(err => console.error("Backend offline:", err));
-
-        // 2. Main Chat Function
-        async function sendMessage() {
-            const text = inputField.value.trim();
-            if (!text) return; 
-
-            // Add user message
-            addMessage(text, 'user');
-            
-            // Disable input while loading
-            inputField.value = '';
-            inputField.disabled = true;
-            sendBtn.disabled = true;
-            sendBtn.innerText = '...';
-
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text })
+        // Load Incident Data
+        fetch('/api/incidents')
+            .then(res => res.json())
+            .then(data => {
+                const table = document.getElementById('incidentTable');
+                table.innerHTML = `<tr><th>Type</th><th>Location</th><th>Status</th></tr>`;
+                data.forEach(inc => {
+                    const color = inc.status === 'Critical' ? '#ef4444' : (inc.status === 'Resolved' ? '#10b981' : '#f59e0b');
+                    table.innerHTML += `
+                        <tr>
+                            <td><b>${inc.type}</b></td>
+                            <td>${inc.location}</td>
+                            <td style="color:${color}">${inc.status}</td>
+                        </tr>`;
                 });
+            })
+            .catch(err => console.error("Failed to load incidents", err));
 
-                const data = await response.json();
-                
-                if (data.error) {
-                    addMessage("Error: " + data.error, 'ai');
-                } else {
-                    addMessage(data.reply, 'ai');
-                }
-            } catch (err) {
-                console.error("Chat Error:", err);
-                addMessage("System Error: Check console for details.", 'ai');
-            } finally {
-                inputField.disabled = false;
-                sendBtn.disabled = false;
-                sendBtn.innerText = 'Send';
-                inputField.focus();
+        // Chat Logic
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if(!text) return;
+            
+            addMsg(text, 'user');
+            input.value = '';
+            
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: text})
+                });
+                const data = await res.json();
+                addMsg(data.reply, 'ai');
+            } catch(e) {
+                addMsg("⚠️ System Error: Unable to reach AI service.", 'ai');
             }
         }
 
-        // 3. Helper to create chat bubbles
-        function addMessage(text, sender) {
+        function addMsg(text, type) {
             const div = document.createElement('div');
-            div.classList.add('message', sender);
+            div.className = `msg ${type}`;
             div.textContent = text;
-            messagesDiv.appendChild(div);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight; 
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = 9999;
         }
 
-        // 4. Enter key listener
-        inputField.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
+        function handleKey(e) { if(e.key === 'Enter') sendMessage(); }
     </script>
-    </body>
+</body>
 </html>
