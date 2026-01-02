@@ -6,24 +6,23 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(express.static('public'));
 app.use(express.json());
 
-// 1. Hub Config Endpoint
+// 1. Config Endpoint
 app.get('/api/config', (req, res) => {
     res.json({ status: "Online", mode: "Hub" });
 });
 
-// 2. Chat Endpoint (Using the specific legacy model name)
+// 2. Chat Endpoint (Now using the faster Flash model supported by the new library)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/api/chat', async (req, res) => {
     try {
-        // FIX: Use 'gemini-1.0-pro' which is the specific version for the v1beta API
-        const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro"});
+        // With the library update, this model will now work reliably
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
         
-        const prompt = `You are a security operations AI. Keep answers concise. User: ${req.body.message}`;
+        const prompt = `You are a security operations AI for Evidentia. Keep answers concise and professional. User: ${req.body.message}`;
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
@@ -32,11 +31,11 @@ app.post('/api/chat', async (req, res) => {
         
     } catch (error) {
         console.error("AI Error:", error.message);
-        res.json({ reply: "⚠️ AI Error: " + error.message });
+        res.json({ reply: "⚠️ AI Offline: " + error.message });
     }
 });
 
-// 3. Mock Data for the Hub (Live Incidents)
+// 3. Hub Data Endpoint (Mock Data for the Dashboard)
 app.get('/api/incidents', (req, res) => {
     res.json([
         { id: 101, type: "Unauthorized Access", location: "Server-DB-04", status: "Critical" },
@@ -50,7 +49,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start Server
 if (require.main === module) {
     app.listen(PORT, () => {
         console.log(`✅ Hub Active on port ${PORT}`);
