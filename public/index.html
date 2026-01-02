@@ -281,12 +281,22 @@
         btn.onmouseup=btn.ontouchend=()=>{if(mediaRecorder?.state==='recording'){mediaRecorder.stop();btn.classList.remove('active')}};
         
         // SAFE PLAYBACK
+      // --- CRASH-PROOF AUDIO PLAYER ---
         socket.on('radio-playback', d => {
+            // 1. Add visual log first
             addLog(d.name, "Audio", true, d.audio);
-            if(d.audio && d.audio.length > 50) { // Safety check length
-                new Audio(d.audio).play().catch(e => console.warn("Audio play blocked", e));
+            
+            // 2. Try to play, but ignore errors if file is bad
+            if(d.audio && d.audio.length > 50) {
+                try {
+                    let snd = new Audio(d.audio);
+                    snd.play().catch(e => console.warn("Audio auto-play blocked (harmless):", e));
+                } catch (err) {
+                    console.error("Bad audio file skipped:", err);
+                }
             }
         });
+
         socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false));
 
         function addLog(n, m, v, s) {
@@ -295,9 +305,15 @@
             if(v) {
                 d.className += ' chat-voice';
                 d.innerHTML = `<span>🔊</span> <b>${n}</b>`;
-                // Only attach click handler if valid audio string exists
+                // 3. Click-to-play with safety catch
                 if(s && s.length > 50) {
-                    d.onclick = () => new Audio(s).play().catch(e => console.warn("Audio error", e));
+                    d.onclick = () => {
+                        try { new Audio(s).play(); } 
+                        catch(e) { alert("Audio corrupted/empty"); }
+                    };
+                } else {
+                    d.style.opacity = "0.5"; // Dim invalid audio
+                    d.innerHTML += " (Error)";
                 }
             } else {
                 d.innerHTML = `<b>${n}</b>: ${m}`;
