@@ -4,16 +4,13 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 
 const app = express();
-
-// Hostinger (and most VPS) will assign a port via process.env.PORT.
-// If not found, it defaults to 3000.
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(express.static('public'));
+app.use(express.static('public')); // This serves your CSS/JS/HTML files
 app.use(express.json());
 
-// 1. Endpoint to safely send Supabase config to the frontend
+// 1. Endpoint for frontend config
 app.get('/api/config', (req, res) => {
     res.json({
         supabaseUrl: process.env.SUPABASE_URL,
@@ -21,13 +18,15 @@ app.get('/api/config', (req, res) => {
     });
 });
 
-// 2. Endpoint for Gemini AI (Chatbot)
-// Note: Ensure GEMINI_API_KEY is set in your Hostinger Environment Variables
+// 2. Chat Endpoint (Updated for reliability)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/api/chat', async (req, res) => {
     try {
-        // Use the newer, faster, and more stable model const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+        // FIX: Switched from 'gemini-pro' to 'gemini-1.5-flash'
+        // This model is faster and less likely to throw 500 errors on the free tier.
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+        
         const prompt = `You are a helpful Security Operations assistant for Evidentia Security. 
                         Keep answers concise and professional. 
                         User asks: ${req.body.message}`;
@@ -39,18 +38,18 @@ app.post('/api/chat', async (req, res) => {
         res.json({ reply: text });
     } catch (error) {
         console.error("AI Error:", error);
-        res.status(500).json({ error: "Failed to fetch AI response." });
+        // This will print the EXACT error to your Render logs if it fails again
+        res.status(500).json({ error: error.message || "Failed to fetch AI response." });
     }
 });
 
-// 3. Serve the Dashboard (Frontend)
+// 3. Serve the Dashboard (The fix for the "Funny" JSON screen)
 app.get('/', (req, res) => {
+    // This tells the server: "When someone visits the home page, show them the HTML file, not JSON."
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start Server - SIMPLIFIED FOR HOSTINGER
-// We removed the "module.exports" and the "if" check because Hostinger
-// always wants this file to start the server immediately.
+// Start Server
 app.listen(PORT, () => {
     console.log(`✅ Evidentia App is running on port ${PORT}`);
 });
