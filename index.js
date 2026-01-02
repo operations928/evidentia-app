@@ -21,32 +21,29 @@ const rootLimiter = RateLimit({
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
+// Initialize Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 let activeUnits = {}; 
 
-// --- SOCKET.IO (FIXED BROADCASTING) ---
+// --- SOCKET.IO ---
 io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
-
-    // 1. AUTO-JOIN MAIN CHANNEL
+    // 1. Auto-Join Main
     socket.join('MAIN'); 
 
-    // 2. UNIT LOGIN
+    // 2. Unit Login
     socket.on('unit-login', (data) => {
         activeUnits[socket.id] = { ...data, socketId: socket.id };
-        socket.join('MAIN'); // Ensure they are in MAIN
+        socket.join('MAIN'); 
         io.emit('map-update', Object.values(activeUnits));
     });
 
-    // 3. JOIN SPECIFIC CHANNEL
+    // 3. Join Channel
     socket.on('join-channel', (channel) => {
-        // Leave all rooms except their own ID
         socket.rooms.forEach(room => { if (room !== socket.id) socket.leave(room); });
         socket.join(channel);
-        console.log(`${socket.id} joined ${channel}`);
     });
 
-    // 4. GPS TRACKING
+    // 4. GPS
     socket.on('location-update', (data) => {
         if (activeUnits[socket.id]) {
             Object.assign(activeUnits[socket.id], data);
@@ -54,32 +51,21 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 5. RADIO VOICE (FIXED)
+    // 5. Radio Voice
     socket.on('radio-voice', async (data) => {
-        // Send to everyone in the channel EXCEPT sender (prevent echo)
         socket.to(data.channel).emit('radio-playback', data); 
-        
         await supabase.from('radio_logs').insert([{ 
-            sender: data.name, 
-            message: '[AUDIO]', 
-            is_voice: true, 
-            audio_data: data.audio, 
-            lat: data.lat, 
-            lng: data.lng 
+            sender: data.name, message: '[AUDIO]', is_voice: true, 
+            audio_data: data.audio, lat: data.lat, lng: data.lng 
         }]);
     });
     
-    // 6. RADIO TEXT (FIXED)
+    // 6. Radio Text
     socket.on('radio-text', async (data) => {
-        // Send to EVERYONE in channel INCLUDING sender (so you see your own text)
         io.to(data.channel).emit('radio-text-broadcast', data);
-        
         await supabase.from('radio_logs').insert([{ 
-            sender: data.name, 
-            message: data.msg, 
-            is_voice: false, 
-            lat: data.lat, 
-            lng: data.lng 
+            sender: data.name, message: data.msg, is_voice: false, 
+            lat: data.lat, lng: data.lng 
         }]);
     });
 
@@ -91,14 +77,14 @@ io.on('connection', (socket) => {
 
 // --- API ROUTES ---
 
-// 1. DATA & CONFIG
+// 1. Data & Config
 app.get('/api/radio-history', async (req, res) => {
     const { data } = await supabase.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(20);
     res.json(data ? data.reverse() : []);
 });
 app.get('/api/config/:key', async (req, res) => {
     const { data } = await supabase.from('app_config').select('value').eq('key', req.params.key).single();
-    res.json(data ? data.value : ["General", "Patrol", "Incident"]);
+    res.json(data ? data.value : ["General"]);
 });
 app.post('/api/config', async (req, res) => {
     const { key, value } = req.body;
@@ -106,22 +92,18 @@ app.post('/api/config', async (req, res) => {
     res.json({ status: 'ok' });
 });
 
-// 2. PROFILES & STAFF
+// 2. Profiles & Staff
 app.post('/api/profile/update', async (req, res) => {
     const { id, updates } = req.body;
-    const { error } = await supabase.from('profiles').update(updates).eq('id', id);
-    res.json({ status: error ? 'error' : 'updated' });
+    await supabase.from('profiles').update(updates).eq('id', id);
+    res.json({ status: 'updated' });
 });
 app.get('/api/staff', async (req, res) => {
     const { data } = await supabase.from('profiles').select('*');
     res.json(data || []);
 });
-app.get('/api/stats/:name', async (req, res) => {
-    const { count } = await supabase.from('field_reports').select('*', { count: 'exact' }).eq('officer_name', req.params.name);
-    res.json({ reports: count || 0, hours: "0.0" }); 
-});
 
-// 3. CRM & TICKETS
+// 3. CRM & Tickets
 app.get('/api/clients', async (req, res) => {
     const { data } = await supabase.from('clients').select('*');
     res.json(data || []);
@@ -141,7 +123,7 @@ app.post('/api/tickets', async (req, res) => {
     res.json({ status: 'ok' });
 });
 
-// 4. OPS
+// 4. Operations
 app.post('/api/clock', async (req, res) => {
     const { action, officer_name, role, lat, lng } = req.body;
     if (action === 'in') await supabase.from('timesheets').insert([{ officer_name, role_worked: role, lat, lng, clock_in: new Date() }]);
@@ -152,10 +134,6 @@ app.post('/api/reports', async (req, res) => {
     const { officer_name, type, location, narrative } = req.body;
     await supabase.from('field_reports').insert([{ officer_name, incident_type: type, location, narrative }]);
     res.json({ status: 'ok' });
-});
-app.get('/api/licenses/:uid', async (req, res) => {
-    const { data } = await supabase.from('licenses').select('*').eq('user_id', req.params.uid);
-    res.json(data || []);
 });
 app.get('/api/courses', async (req, res) => {
     const { data } = await supabase.from('courses').select('*');
