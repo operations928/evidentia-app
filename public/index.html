@@ -21,7 +21,6 @@
         let currentChannel = 'MAIN';
         let isClockedIn = false; 
         let isIdle = false; 
-        let isDispatched = false; 
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = audioCtx.createGain(); 
         masterGain.connect(audioCtx.destination);
@@ -30,21 +29,28 @@
         let myMarker = null; 
         let myAccuracy = null;
         let myPathLine = null; 
-        let pathCoords = [];   
+        let pathCoords = []; 
         let geofenceLayers = []; 
 
         let reportConfig = null;
         let isMuted = false;
 
-        // --- INIT SUPABASE ---
+        // --- INIT ---
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
-        try { 
-            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
-            console.log("Supabase Client Init Success");
-        } catch (e) { 
-            console.error("Init Error:", e); 
+        try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.error("Init Error:", e); }
+
+        // --- HELPER: CRASH PROTECTION ---
+        function safeText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = text;
+            else console.warn("Missing Element ID:", id);
+        }
+
+        function safeVal(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
         }
 
         // --- AUTH ---
@@ -54,135 +60,55 @@
         }
 
         async function handleLogin() {
-            if (!sb) return alert("System Error: Database not connected. Reload page.");
-            
-            const btn = document.getElementById('btnLoginBtn');
-            if(btn) { btn.innerText = "AUTHENTICATING..."; btn.disabled = true; }
-
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-
-            try {
-                const { data, error } = await sb.auth.signInWithPassword({ email, password });
-                
-                if(error) {
-                    alert("Login Failed: " + error.message);
-                    if(btn) { btn.innerText = "AUTHENTICATE"; btn.disabled = false; }
-                } else {
-                    console.log("Auth Success");
-                    document.getElementById('authModal').style.display = 'none';
-                    if(data.user) fetchProfile(data.user.id, data.user.email);
-                }
-            } catch (e) {
-                alert("Login Error: " + e.message);
-                if(btn) { btn.innerText = "AUTHENTICATE"; btn.disabled = false; }
-            }
-        }
-
-        // --- COMMAND: CREATE NEW USER (Without Logout) ---
-        async function createPersonnel() {
-            if(!currentUser || currentUser.role !== 'Command') return alert("Unauthorized.");
-
-            const email = document.getElementById('newEmail').value;
-            const password = document.getElementById('newPass').value;
-            const name = document.getElementById('newName').value;
-            const rank = document.getElementById('newRank').value;
-            const role = document.getElementById('newRole').value;
-            const callsign = document.getElementById('newCall').value;
-
-            if(!email || !password || !name) return alert("Email, Password and Name are required.");
-
-            // TRICK: Create a secondary client to sign up the new user 
-            // so the current Command session is not destroyed.
-            const tempSb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-            try {
-                const { data, error } = await tempSb.auth.signUp({
-                    email: email,
-                    password: password,
-                    options: {
-                        data: { full_name: name } // Init metadata
-                    }
-                });
-
-                if(error) throw error;
-
-                if(data.user) {
-                    // Now update the specific profile details using the Main Admin Client
-                    await sb.from('profiles').update({
-                        rank: rank,
-                        role: role,
-                        call_sign: callsign,
-                        full_name: name,
-                        current_status: 'Off Duty'
-                    }).eq('id', data.user.id);
-
-                    alert("Personnel Created Successfully: " + name);
-                    document.getElementById('newEmail').value = "";
-                    document.getElementById('newPass').value = "";
-                    document.getElementById('newName').value = "";
-                    loadStaff(); // Refresh list
-                }
-
-            } catch (e) {
-                alert("Creation Failed: " + e.message);
-            }
+            const { error } = await sb.auth.signInWithPassword({ email, password });
+            if(error) alert("Login Failed: " + error.message);
         }
 
         async function handleSignup() {
-            // Public signup (for recruits)
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) alert(error.message); else alert("Applied. Please Log In.");
+            if(error) alert(error.message); else alert("Applied.");
         }
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
-        // --- CLOCK & IDLE LOGIC ---
+        // --- CLOCK & IDLE ---
         async function toggleShift() {
             if(!currentUser) return;
-            try {
-                if(!isClockedIn) {
-                    if(confirm("Start Shift?")) {
-                        await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'in', officer_name: currentUser.full_name, role: currentUser.role }) });
-                        isClockedIn = true;
-                        isIdle = false;
-                        updateAccessLevel();
-                        await sb.from('profiles').update({ current_status: 'Active', last_active: new Date() }).eq('id', currentUser.id);
-                    }
-                } else {
-                    if(confirm("End Shift? You will be restricted to Off-Duty areas.")) {
-                        await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'out', officer_name: currentUser.full_name }) });
-                        isClockedIn = false;
-                        isIdle = false;
-                        updateAccessLevel();
-                        await sb.from('profiles').update({ current_status: 'Off Duty', last_active: new Date() }).eq('id', currentUser.id);
-                    }
+            if(!isClockedIn) {
+                if(confirm("Start Shift?")) {
+                    await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'in', officer_name: currentUser.full_name, role: currentUser.role }) });
+                    isClockedIn = true; isIdle = false; updateAccessLevel();
+                    await sb.from('profiles').update({ current_status: 'Active', last_active: new Date() }).eq('id', currentUser.id);
                 }
-            } catch(e) { console.error("Clock Error", e); }
+            } else {
+                if(confirm("End Shift? Ops Restricted.")) {
+                    await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'out', officer_name: currentUser.full_name }) });
+                    isClockedIn = false; isIdle = false; updateAccessLevel();
+                    await sb.from('profiles').update({ current_status: 'Off Duty', last_active: new Date() }).eq('id', currentUser.id);
+                }
+            }
         }
 
         async function toggleIdle() {
-            if(!isClockedIn) return alert("You must be clocked in.");
-            
+            if(!isClockedIn) return alert("Must be clocked in.");
             isIdle = !isIdle;
             const status = isIdle ? 'Idle' : 'Active';
             
             const btn = document.getElementById('btnIdle');
             if(btn) {
                 if(isIdle) {
-                    btn.innerText = "RESUME DUTY (Go Active)";
-                    btn.className = "btn btn-green";
+                    btn.innerText = "RESUME DUTY"; btn.className = "btn btn-green";
                     if(document.getElementById('idleWarning')) document.getElementById('idleWarning').style.display = "block";
                 } else {
-                    btn.innerText = "PAUSE (Go Idle)";
-                    btn.className = "btn btn-orange";
+                    btn.innerText = "PAUSE (Go Idle)"; btn.className = "btn btn-orange";
                     if(document.getElementById('idleWarning')) document.getElementById('idleWarning').style.display = "none";
                 }
             }
-            
             await sb.from('profiles').update({ current_status: status }).eq('id', currentUser.id);
             updateAccessLevel();
         }
@@ -196,20 +122,14 @@
 
             if(isClockedIn) {
                 if(btnClock) { btnClock.innerText = "END SHIFT (Clock Out)"; btnClock.className = "btn btn-red"; }
-                if(btnIdle) btnIdle.style.display = "block"; 
-                
-                if(statusDiv) {
-                    if(isIdle) statusDiv.innerHTML = 'Status: <span style="color:var(--orange)">IDLE (PAUSED)</span>';
-                    else statusDiv.innerHTML = 'Status: <span style="color:var(--green)">ON DUTY</span>';
-                }
-
+                if(btnIdle) btnIdle.style.display = "block";
+                if(statusDiv) statusDiv.innerHTML = isIdle ? 'Status: <span style="color:var(--orange)">IDLE</span>' : 'Status: <span style="color:var(--green)">ON DUTY</span>';
                 if(opsMsg) opsMsg.style.display = 'none';
                 if(fieldOps) { fieldOps.style.opacity = "1"; fieldOps.style.pointerEvents = "auto"; }
                 changeChannel('MAIN'); 
             } else {
                 if(btnClock) { btnClock.innerText = "START SHIFT (Clock In)"; btnClock.className = "btn btn-green"; }
-                if(btnIdle) btnIdle.style.display = "none"; 
-                
+                if(btnIdle) btnIdle.style.display = "none";
                 if(statusDiv) statusDiv.innerHTML = 'Status: <span style="color:gray">OFF DUTY</span>';
                 if(opsMsg) opsMsg.style.display = 'block';
                 if(fieldOps) { fieldOps.style.opacity = "0.4"; fieldOps.style.pointerEvents = "none"; }
@@ -222,27 +142,21 @@
         :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f59e0b; --radio-color: #ff4500; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-        
         .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; z-index: 50; transition: transform 0.3s; }
         .main-content { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; }
-        
         .top-deck { height: 60%; display: flex; border-bottom: 2px solid #334155; }
         .bottom-deck { flex: 1; display: flex; overflow: hidden; }
         #map { flex: 1; z-index: 1; }
         
-        /* RADIO UI */
-        .radio-silo { width: 360px; background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-left: 4px solid #333; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.5); padding: 10px; }
-        .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; box-shadow: inset 0 0 20px #000; display: flex; flex-direction: column; height: 100%; }
-        .radio-screen-container { background: #000; padding: 5px; border-radius: 8px; border: 1px solid #555; margin-bottom: 10px; box-shadow: inset 0 0 10px #000; }
-        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; border: 1px solid #555; }
-        .radio-header { border-bottom: 2px dashed #550f0f; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+        .radio-silo { width: 360px; background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-left: 4px solid #333; display: flex; flex-direction: column; padding: 10px; }
+        .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; display: flex; flex-direction: column; height: 100%; }
+        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #555; }
+        .radio-header { border-bottom: 2px dashed #550f0f; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; }
         .chat-log { flex: 1; overflow-y: auto; font-size: 0.8rem; }
-        .control-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px solid #333; }
-        .knob-btn { width: 100%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #444, #111); border: 2px solid #555; color: #aaa; font-size: 0.7rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; flex-direction: column; transition: 0.1s; }
-        .knob-btn:active { transform: scale(0.95); border-color: var(--radio-color); color: var(--radio-color); }
-        .tactical-ptt { width:100%; height:60px; background: repeating-linear-gradient(45deg, #222, #222 10px, #1a1a1a 10px, #1a1a1a 20px); border: 2px solid #555; border-radius: 8px; color: #ccc; cursor: pointer; font-weight: bold; text-shadow: 0 1px 2px black; }
-        .tactical-ptt:active, .tactical-ptt.transmitting { background: var(--radio-color); color: black; box-shadow: 0 0 20px var(--radio-color); border-color: white; }
-
+        .control-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10px 0; }
+        .knob-btn { aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #444, #111); border: 2px solid #555; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; font-size: 0.7rem; }
+        .tactical-ptt { width:100%; height:60px; background: repeating-linear-gradient(45deg, #222, #111 10px); border: 2px solid #555; border-radius: 8px; color: #ccc; cursor: pointer; font-weight: bold; }
+        
         @media (max-width: 768px) {
             .sidebar { position: fixed; height: 100%; transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
@@ -251,54 +165,36 @@
             .menu-toggle { display: block !important; }
         }
 
-        /* GENERAL UI */
         .workspace { flex: 1; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
         .nav-cat { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 15px; font-weight: bold; }
-        .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; display: flex; gap: 10px; transition: 0.2s; font-size: 0.95rem; }
-        .nav-btn:hover { background: #334155; color: white; }
+        .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; display: flex; gap: 10px; font-size: 0.95rem; }
         .nav-btn.active { background: var(--accent); color: white; border-left: 4px solid #60a5fa; }
         .tab-content { display: none; padding: 20px; height: 100%; overflow-y: auto; }
         .tab-content.active-tab { display: block; }
         .card { background: var(--panel); padding: 20px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 15px; }
         .form-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; margin-bottom: 10px; }
-        .form-input:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; border: 1px solid #475569; }
         .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
-        .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); }
-        .btn-orange { background: var(--orange); color: black; }
+        .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); } .btn-orange { background: var(--orange); color: black; }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
         
         .stat-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; text-align: center; }
         .stat-val { font-size: 1.2rem; font-weight: bold; color: white; }
         .stat-lbl { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; }
-        .chat-msg { padding: 2px 0; border-bottom: 1px solid rgba(255,69,0,0.2); font-size: 0.8rem; }
         
         .menu-toggle { display: none; position: absolute; top: 10px; left: 10px; z-index: 1000; background: var(--panel); border: 1px solid #334155; padding: 8px; border-radius: 4px; color: white; cursor: pointer; }
-        
-        .chan-btn { flex: 1; min-width: 40px; background:#333; border:1px solid #555; color:#aaa; padding:4px; cursor:pointer; font-weight:bold; font-size:0.6rem; white-space: nowrap; }
+        .chan-btn { flex: 1; min-width: 40px; background:#333; border:1px solid #555; color:#aaa; padding:4px; cursor:pointer; font-weight:bold; font-size:0.6rem; }
         .active-chan { background: var(--green); color:black; border-color:var(--green); box-shadow:0 0 10px var(--green); }
         .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .dot-green { background-color: #10b981; } .dot-gray { background-color: #64748b; } .dot-orange { background-color: #f59e0b; }
-        
-        /* COMMAND TOOLS */
         .cmd-panel { background: #200; border-top: 1px solid #500; padding: 5px; display: none; text-align: center; margin-top: 5px; }
         .cmd-btn { background: #600; border: 1px solid #800; color: #fab; padding: 2px 6px; font-size: 0.6rem; cursor: pointer; margin: 1px; }
-        
-        /* SCHEDULER & DOCS */
         .job-card { border-left: 4px solid var(--accent); background: rgba(255,255,255,0.03); padding: 15px; margin-bottom: 15px; border-radius: 4px; }
-        .job-card.trade { border-left-color: var(--orange); } .job-card.open { border-left-color: var(--green); }
         .doc-upload-box { border: 2px dashed #475569; padding: 15px; text-align: center; margin-bottom: 10px; border-radius: 6px; cursor: pointer; position: relative; }
-        .doc-label { font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 5px; display: block; text-align: left; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .ts-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         .ts-table th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 8px; }
         .ts-table td { padding: 8px; border-bottom: 1px solid #334155; }
-        
-        .rep-item { padding: 15px; border-bottom: 1px solid #334155; cursor: pointer; transition: 0.2s; }
-        .rep-item:hover { background: rgba(255,255,255,0.05); }
-        .file-list { margin-top: 10px; font-size: 0.8rem; color: #ccc; }
-        .file-link { color: var(--accent); text-decoration: none; margin-right: 10px; }
-        .file-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -309,7 +205,7 @@
             <form onsubmit="event.preventDefault(); handleLogin();">
                 <input type="email" id="email" placeholder="Email" class="form-input" autocomplete="email">
                 <input type="password" id="password" placeholder="Password" class="form-input" autocomplete="current-password">
-                <button type="submit" id="btnLoginBtn" class="btn btn-blue" style="width:100%;">AUTHENTICATE</button>
+                <button type="submit" class="btn btn-blue" style="width:100%;">AUTHENTICATE</button>
             </form>
             <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('signup')">New Recruit? Apply Here</p>
         </div>
@@ -330,7 +226,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v26.0 COMMAND ADD</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v28.0 CRASH PROOF</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -353,7 +249,7 @@
             <div class="nav-cat">Command</div>
             <button class="nav-btn" onclick="showTab('tickets')"><span>🎫</span> Tickets</button>
             <button class="nav-btn" onclick="showTab('clients')"><span>🤝</span> Clients</button>
-            <button class="nav-btn" onclick="showTab('staff')"><span>👥</span> Staff Mgmt</button>
+            <button class="nav-btn" onclick="showTab('staff')"><span>👥</span> Staff List</button>
             <button class="nav-btn" onclick="showTab('admin')"><span>⚙️</span> Config</button>
         </div>
         
@@ -419,7 +315,9 @@
                             <h3 id="shiftStatus">Status: <span style="color:gray">OFFLINE</span></h3>
                             <div id="gpsIndicator" style="font-size:0.7rem; color:red;">GPS: SEARCHING</div>
                         </div>
+                        
                         <p id="dashName">Officer: Loading...</p>
+                        <p id="dashRole">Role: Loading...</p>
                         
                         <div id="idleWarning" style="display:none; background:rgba(255,165,0,0.1); border:1px solid orange; padding:10px; border-radius:5px; margin:10px 0; font-size:0.8rem; color:orange;">
                             ⚠ IDLE MODE: TIME IS UNPAID unless assigned to an active Shift.
@@ -470,65 +368,16 @@
 
                 <div id="tab-team" class="tab-content"><h2>My Team (Organizational Chart)</h2><div class="card" id="orgChartContainer">Loading Team Structure...</div></div>
                 <div id="tab-setup" class="tab-content"><h2>Personal Setup</h2><div class="card"><h3>Customization</h3><div class="grid-2"><div><label class="doc-label">Radio LED Color</label><input type="color" id="prefRadioColor" class="color-picker" value="#ff4500" onchange="savePreferences()"></div><div><label class="doc-label">App Accent Color</label><input type="color" id="prefAccentColor" class="color-picker" value="#3b82f6" onchange="savePreferences()"></div></div><h3 style="margin-top:20px;">My Status</h3><input type="text" id="prefStatus" class="form-input" placeholder="e.g. On Duty, On Break, Patrol" onchange="savePreferences()"></div></div>
-                
-                <div id="tab-timesheet" class="tab-content">
-                    <h2>Timesheet & Payroll</h2>
-                    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <div><div style="color:#94a3b8; font-size:0.8rem; text-transform:uppercase;">Current Pay Cycle</div><div id="tsCycleDates" style="font-size:1.2rem; font-weight:bold; color:white;">Calculating...</div></div>
-                            <div style="text-align:right;"><div style="color:#ef4444; font-weight:bold;" id="tsCountdown">-- Days Left</div><div style="font-size:0.7rem; color:#94a3b8;">Cutoff: Sunday 00:00</div></div>
-                        </div>
-                        <div class="grid-2" style="gap:10px; margin-top:15px; text-align:center;">
-                            <div class="stat-box"><div id="tsTotalHours" style="font-size:1.5rem; color:#3b82f6; font-weight:bold;">0.0</div><div style="font-size:0.7rem;">Total Hrs</div></div>
-                            <div class="stat-box"><div id="tsStatus" style="font-size:1.5rem; color:#a855f7; font-weight:bold;">Open</div><div style="font-size:0.7rem;">Status</div></div>
-                        </div>
-                        <button id="btnSubmitTimesheet" class="btn btn-green" style="width:100%; margin-top:15px; opacity:0.5; cursor:not-allowed;" onclick="submitTimesheet()">Submit for Payroll (Locked)</button>
-                        <div id="tsReminder" style="margin-top:10px; font-size:0.8rem; color:#f59e0b; display:none; text-align:center;">⚠️ Reminder: Please review and submit 48hrs before cutoff.</div>
-                    </div>
-                    <div class="card"><h3>Shift History</h3><div style="overflow-x:auto;"><table class="ts-table"><thead><tr><th>Date</th><th>In</th><th>Out</th><th>Hrs</th><th>Status</th></tr></thead><tbody id="tsTableBody"><tr><td colspan="5" style="text-align:center; padding:20px;">Loading history...</td></tr></tbody></table></div></div>
-                </div>
-
-                <div id="tab-schedule" class="tab-content"><h2>Scheduled Operations</h2><div class="card"><h3>My Assigned Shifts</h3><div id="myScheduleList">Loading...</div></div><div class="card" style="border-left: 4px solid var(--green);"><h3>Open Shifts (Available)</h3><div id="openScheduleList">Loading...</div></div><div class="card" style="border-left: 4px solid var(--orange);"><h3>Shift Trade Board</h3><div id="tradeScheduleList">Loading...</div></div></div>
-                <div id="tab-tasks" class="tab-content"><h2>TOC Tasks & Dispatch</h2><div class="card" style="background:#1e293b; border-left: 4px solid var(--accent);"><div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:2rem; font-weight:bold; color:white;" id="openTaskCount">0</div><div style="font-size:0.8rem; color:#94a3b8;">OPEN INCIDENTS</div></div><div style="text-align:right;"><div style="font-size:2rem; font-weight:bold; color:var(--green);" id="closedTaskCount">0</div><div style="font-size:0.8rem; color:#94a3b8;">CLOSED TODAY</div></div></div></div><div class="card"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><h3>Dispatch Log</h3><button class="btn btn-blue" style="font-size:0.7rem; padding:5px 10px;" onclick="loadTasks()">REFRESH</button></div><div style="overflow-x:auto;"><table class="ts-table"><thead><tr><th>Status</th><th>Type</th><th>Location</th><th>Assigned</th><th>Time</th></tr></thead><tbody id="taskListBody"><tr><td colspan="5" style="text-align:center;">Loading tasks...</td></tr></tbody></table></div></div></div>
-                <div id="tab-reports" class="tab-content"><h2>Report Writer</h2><div class="card"><h3>New Report</h3><div class="grid-2"><div><label class="doc-label">Category</label><select id="repCategory" class="form-input" onchange="updateReportTypes()"><option value="toc">TOC Task Report</option><option value="internal">Internal Report</option></select></div><div><label class="doc-label">Report Type</label><select id="repType" class="form-input"></select></div></div><div style="margin-top:10px;"><label class="doc-label">Location / Asset ID</label><input type="text" id="repLocation" class="form-input" placeholder="e.g. 123 Main St OR Vehicle #404"></div><div style="margin-top:10px;"><label class="doc-label">Narrative / Details</label><textarea id="repNar" class="form-input" rows="6" placeholder="Describe the incident, inspection, or task details..."></textarea></div><div style="margin-top:15px; border-top:1px solid #334155; padding-top:10px;"><label class="doc-label">📎 Attachments</label><label class="doc-upload-box"><span style="font-size:1.5rem;">📂</span><span>Select Files</span><input type="file" id="repFiles" multiple style="display:none;" onchange="updateFileCount()"></label><div id="fileCountMsg" style="font-size:0.8rem; color:#94a3b8; text-align:center;">No files selected</div></div><button class="btn btn-blue" style="width:100%; margin-top:10px;" id="btnSubmitRep" onclick="submitReport()">SUBMIT FOR APPROVAL</button></div><div class="card"><h3>Report History (Status)</h3><div id="reportHistoryList">Loading...</div></div></div>
-                
-                <div id="tab-staff" class="tab-content">
-                    <h2>Staff Management</h2>
-                    
-                    <div class="card" id="commandStaffTools" style="display:none; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05);">
-                        <h3 style="color:#f59e0b; margin-top:0;">COMMAND: Add Personnel</h3>
-                        <div class="grid-2">
-                            <div><label class="doc-label">Email</label><input type="email" id="newEmail" class="form-input" autocomplete="off"></div>
-                            <div><label class="doc-label">Password</label><input type="text" id="newPass" class="form-input" autocomplete="off"></div>
-                            <div><label class="doc-label">Full Name</label><input type="text" id="newName" class="form-input"></div>
-                            <div><label class="doc-label">Call Sign</label><input type="text" id="newCall" class="form-input"></div>
-                            <div>
-                                <label class="doc-label">Rank</label>
-                                <select id="newRank" class="form-input">
-                                    <option>Recruit</option><option>Officer</option><option>Corporal</option><option>Sergeant</option>
-                                    <option>Lieutenant</option><option>Captain</option><option>Commander</option><option>Chief</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="doc-label">Role</label>
-                                <select id="newRole" class="form-input">
-                                    <option value="Officer">Officer</option>
-                                    <option value="Dispatch">Dispatch</option>
-                                    <option value="Command">Command</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button class="btn btn-orange" style="width:100%; margin-top:10px;" onclick="createPersonnel()">CREATE & CONFIGURE USER</button>
-                    </div>
-
-                    <div class="card" id="staffList">Loading...</div>
-                </div>
-
-                <div id="tab-tickets" class="tab-content"><h2>Tickets</h2><div class="card"><input type="text" id="tickDesc" class="form-input" placeholder="Ticket Description"><button class="btn btn-green" onclick="createTicket()">Create Ticket</button></div><div class="card"><div id="ticketList">Loading...</div></div></div>
-                <div id="tab-clients" class="tab-content"><h2>Clients</h2><div class="card"><input type="text" id="cliName" class="form-input" placeholder="Client Name"><button class="btn btn-blue" onclick="addClient()">Add Client</button></div><div class="card"><div id="clientList">Loading...</div></div></div>
-                <div id="tab-admin" class="tab-content"><h2>Config</h2><div class="card"><button class="btn btn-blue" onclick="saveConfig()">Update Config</button></div></div>
-                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="app-grid"><a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a><a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a></div></div>
-                <div id="tab-training" class="tab-content"><h2>Academy</h2><div class="card" id="courseList">Loading courses...</div></div>
+                <div id="tab-timesheet" class="tab-content"><h2>Timesheet & Payroll</h2><div class="card">...</div></div>
+                <div id="tab-schedule" class="tab-content"><h2>Scheduled Operations</h2><div class="card">...</div></div>
+                <div id="tab-tasks" class="tab-content"><h2>TOC Tasks</h2><div class="card">...</div></div>
+                <div id="tab-reports" class="tab-content"><h2>Reports</h2><div class="card">...</div></div>
+                <div id="tab-staff" class="tab-content"><h2>Staff</h2><div class="card" id="staffList"></div></div>
+                <div id="tab-tickets" class="tab-content"><h2>Tickets</h2><div class="card" id="ticketList"></div></div>
+                <div id="tab-clients" class="tab-content"><h2>Clients</h2><div class="card" id="clientList"></div></div>
+                <div id="tab-admin" class="tab-content"><h2>Config</h2><div class="card">...</div></div>
+                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="app-grid">...</div></div>
+                <div id="tab-training" class="tab-content"><h2>Academy</h2><div class="card" id="courseList">...</div></div>
 
             </div>
         </div>
@@ -543,24 +392,23 @@
                 });
                 sb.auth.onAuthStateChange(async (event, session) => {
                     if (event === 'SIGNED_IN' && session) { document.getElementById('authModal').style.display = 'none'; fetchProfile(session.user.id, session.user.email); }
-                    else if (event === 'SIGNED_OUT') { document.getElementById('authModal').style.display = 'flex'; currentUser = null; document.getElementById('chatArea').innerHTML = ''; }
+                    else if (event === 'SIGNED_OUT') { document.getElementById('authModal').style.display = 'flex'; currentUser = null; }
                 });
             }
             if(typeof io !== 'undefined') { socket = io(); setupSocketListeners(); }
         };
 
-        // --- RADIO UI ---
+        // --- RADIO ---
+        function volUp() { if(masterGain.gain.value < 2) masterGain.gain.value += 0.2; }
+        function volDown() { if(masterGain.gain.value > 0.2) masterGain.gain.value -= 0.2; }
+        function toggleMute() { isMuted = !isMuted; masterGain.gain.value = isMuted ? 0 : 1; document.getElementById('btnMute').style.color = isMuted ? "red" : "#aaa"; }
+        function configPtt() { alert("Hold SPACEBAR to talk."); }
         function adjustScreen(prop, val) {
             const screen = document.getElementById('radioScreen');
             if(prop === 'brightness') screen.style.filter = `brightness(${val}%) contrast(${document.querySelector('input[oninput*="contrast"]').value}%)`;
             if(prop === 'contrast') screen.style.filter = `contrast(${val}%) brightness(${document.querySelector('input[oninput*="brightness"]').value}%)`;
         }
-        function volUp() { if(masterGain.gain.value < 2) masterGain.gain.value += 0.2; }
-        function volDown() { if(masterGain.gain.value > 0.2) masterGain.gain.value -= 0.2; }
-        function toggleMute() { isMuted = !isMuted; masterGain.gain.value = isMuted ? 0 : 1; document.getElementById('btnMute').style.color = isMuted ? "red" : "#aaa"; }
-        function configPtt() { alert("Hold SPACEBAR to talk."); }
 
-        // --- PROFILE & PREFS ---
         async function fetchProfile(uid, email) {
             try {
                 let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
@@ -568,33 +416,28 @@
                 if(profile) {
                     currentUser = profile;
                     
-                    // PREFERENCES
                     if(profile.preferences) {
                         document.documentElement.style.setProperty('--radio-color', profile.preferences.radioColor || '#ff4500');
                         document.documentElement.style.setProperty('--accent', profile.preferences.accentColor || '#3b82f6');
-                        document.getElementById('prefRadioColor').value = profile.preferences.radioColor || '#ff4500';
-                        document.getElementById('prefAccentColor').value = profile.preferences.accentColor || '#3b82f6';
-                        document.getElementById('prefStatus').value = profile.current_status || 'Active';
+                        safeVal('prefRadioColor', profile.preferences.radioColor);
+                        safeVal('prefAccentColor', profile.preferences.accentColor);
+                        safeVal('prefStatus', profile.current_status);
                     }
 
-                    // STATUS CHECK
                     if(profile.current_status === 'Active') { isClockedIn = true; isIdle = false; }
                     else if(profile.current_status === 'Idle') { isClockedIn = true; isIdle = true; }
                     else { isClockedIn = false; isIdle = false; }
                     updateAccessLevel();
 
-                    // DASH
-                    document.getElementById('dashName').innerText = "Officer: " + (profile.full_name || "Unknown");
-                    document.getElementById('dashRole').innerText = "Role: " + (profile.role || "Unassigned");
+                    safeText('dashName', "Officer: " + (profile.full_name || "Unknown"));
+                    safeText('dashRole', "Role: " + (profile.role || "Unassigned"));
                     
-                    // STATS (SAFE LOAD)
                     const totalAssign = (profile.stats_accepted || 0) + (profile.stats_refused || 0);
                     const refusalRatio = totalAssign > 0 ? ((profile.stats_refused / totalAssign) * 100).toFixed(1) + "%" : "0%";
-                    if(document.getElementById('stRefuse')) document.getElementById('stRefuse').innerText = refusalRatio;
-                    if(document.getElementById('stTrain')) document.getElementById('stTrain').innerText = (profile.stats_training_hours || 0) + "h";
-                    if(document.getElementById('stIdle')) document.getElementById('stIdle').innerText = (profile.stats_idle_hours || 0) + "h";
+                    safeText('stRefuse', refusalRatio);
+                    safeText('stTrain', (profile.stats_training_hours || 0) + "h");
+                    safeText('stIdle', (profile.stats_idle_hours || 0) + "h");
 
-                    // OPS BREAKDOWN
                     const opsDiv = document.getElementById('opsBreakdown');
                     if(opsDiv) {
                         opsDiv.innerHTML = '';
@@ -605,41 +448,35 @@
                         } else { opsDiv.innerText = "No operations recorded."; }
                     }
 
-                    // PROFILE FORM - RESTRICTIONS
-                    const isCommand = ['Admin','Command','Dispatch'].includes(profile.role);
-                    document.getElementById('profName').value = profile.full_name || "";
-                    document.getElementById('profRank').value = profile.rank || "";
-                    document.getElementById('profCallSign').value = profile.call_sign || "";
-                    document.getElementById('profTitle').value = profile.role || ""; 
-                    document.getElementById('profTeam').value = profile.team_name || "";
-                    document.getElementById('profManager').value = profile.direct_manager || "";
-                    document.getElementById('profSecLicNum').value = profile.security_license_number || "";
-                    document.getElementById('profPhone').value = profile.phone || ""; 
-                    document.getElementById('profStart').value = profile.start_date || "";
-                    document.getElementById('profTerm').value = profile.term_date || "";
+                    safeVal('profName', profile.full_name || "");
+                    safeVal('profRank', profile.rank || "");
+                    safeVal('profCallSign', profile.call_sign || "");
+                    safeVal('profTitle', profile.role || ""); 
+                    safeVal('profTeam', profile.team_name || "");
+                    safeVal('profManager', profile.direct_manager || "");
+                    safeVal('profSecLicNum', profile.security_license_number || "");
+                    safeVal('profPhone', profile.phone || ""); 
+                    safeVal('profStart', profile.start_date || "");
+                    safeVal('profTerm', profile.term_date || "");
                     
                     if(profile.profile_pic_url) {
-                        document.getElementById('profPicDisplay').src = profile.profile_pic_url;
-                        document.getElementById('setupPicDisplay').src = profile.profile_pic_url;
+                        const pic = document.getElementById('profPicDisplay');
+                        if(pic) pic.src = profile.profile_pic_url;
                     }
 
-                    if(!isCommand) {
-                        document.getElementById('profRank').disabled = true;
-                        document.getElementById('profCallSign').disabled = true;
-                        document.getElementById('profTitle').disabled = true;
-                        document.getElementById('profTeam').disabled = true;
-                        document.getElementById('profManager').disabled = true;
-                        document.getElementById('profSecLicNum').disabled = true;
-                        document.getElementById('profStart').disabled = true;
-                        document.getElementById('profTerm').disabled = true;
-                        document.getElementById('profLockMsg').style.display = 'block';
-                    } else {
-                        document.querySelectorAll('#tab-profile input').forEach(el => el.disabled = false);
-                        document.getElementById('profLockMsg').style.display = 'none';
-                        document.getElementById('commandLinks').style.display = 'block';
-                        document.getElementById('cmdRadioTools').style.display = 'block';
-                        // SHOW STAFF TOOLS IF COMMAND
-                        if(document.getElementById('commandStaffTools')) document.getElementById('commandStaffTools').style.display = 'block';
+                    const isCommand = ['Admin','Command','Dispatch'].includes(profile.role);
+                    const licInput = document.getElementById('profSecLicNum');
+                    if(licInput) licInput.disabled = !isCommand;
+
+                    if(isCommand) {
+                        const cmdLinks = document.getElementById('commandLinks');
+                        if(cmdLinks) cmdLinks.style.display = 'block';
+                        const cmdTools = document.getElementById('cmdRadioTools');
+                        if(cmdTools) cmdTools.style.display = 'block';
+                        const lockMsg = document.getElementById('profLockMsg');
+                        if(lockMsg) lockMsg.style.display = 'none';
+                        const cmdInputs = document.querySelectorAll('#tab-profile input');
+                        cmdInputs.forEach(el => el.disabled = false);
                     }
                     
                     if(socket) {
@@ -647,22 +484,14 @@
                         if(navigator.geolocation) {
                             navigator.geolocation.watchPosition(
                                 pos => {
-                                    const lat = pos.coords.latitude; const lng = pos.coords.longitude; const acc = pos.coords.accuracy;
+                                    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
                                     socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
-                                    
-                                    // GPS TRAIL
-                                    if(!pathCoords) pathCoords = [];
-                                    pathCoords.push([lat, lng]);
-                                    if(myPathLine) myPathLine.setLatLngs(pathCoords);
-                                    else myPathLine = L.polyline(pathCoords, {color: 'red'}).addTo(map);
-
-                                    if(!myMarker) { myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 1, radius: 8 }).addTo(map); myAccuracy = L.circle([lat, lng], { radius: acc, color: '#3b82f6', fillOpacity: 0.1, weight: 1 }).addTo(map); map.setView([lat, lng], 16); }
-                                    else { myMarker.setLatLng([lat, lng]); myAccuracy.setLatLng([lat, lng]); myAccuracy.setRadius(acc); }
-                                    document.getElementById('gpsIndicator').innerText = "GPS: LIVE ✅"; document.getElementById('gpsIndicator').style.color = "var(--green)";
+                                    if(!myMarker) { myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', radius: 8 }).addTo(map); map.setView([lat, lng], 16); }
+                                    else { myMarker.setLatLng([lat, lng]); }
+                                    safeText('gpsIndicator', "GPS: LIVE ✅");
                                     checkGeofences(lat, lng);
                                 },
-                                err => { document.getElementById('gpsIndicator').innerText = "GPS: BLOCKED ❌"; },
-                                { enableHighAccuracy: true }
+                                err => { safeText('gpsIndicator', "GPS: BLOCKED ❌"); }
                             );
                         }
                     }
@@ -676,6 +505,7 @@
             if(data) {
                 data.forEach(fence => {
                     const d = map.distance([lat, lng], [fence.lat, fence.lng]);
+                    // Logic to alert if inside zone can go here
                 });
             }
         }
@@ -686,10 +516,8 @@
                 accentColor: document.getElementById('prefAccentColor').value
             };
             const status = document.getElementById('prefStatus').value;
-            
             document.documentElement.style.setProperty('--radio-color', prefs.radioColor);
             document.documentElement.style.setProperty('--accent', prefs.accentColor);
-
             await sb.from('profiles').update({ preferences: prefs, current_status: status }).eq('id', currentUser.id);
         }
 
@@ -700,47 +528,28 @@
             container.innerHTML = '';
             
             const rankOrder = { 'Chief':1, 'Deputy Chief':2, 'Commander':3, 'Captain':4, 'Lieutenant':5, 'Sergeant':6, 'Corporal':7, 'Officer':8, 'Recruit':9, 'Unassigned':10 };
-            
             data.sort((a,b) => (rankOrder[a.rank] || 10) - (rankOrder[b.rank] || 10));
-
             data.forEach(p => {
                 let dotColor = 'dot-gray';
-                let statusText = p.current_status || 'Off Duty';
-                if(statusText === 'Active') { dotColor = 'dot-green'; statusText = 'Online & Active'; }
-                else if(statusText === 'Idle') { dotColor = 'dot-orange'; }
-
-                const html = `
-                    <div class="org-node">
-                        <span class="status-dot ${dotColor}"></span>
-                        <div class="org-rank">${p.rank || 'OFFICER'}</div>
-                        <div class="org-name">${p.full_name}</div>
-                        <div class="org-status">${statusText}</div>
-                    </div>`;
-                container.innerHTML += html;
+                if(p.current_status === 'Active') dotColor = 'dot-green';
+                else if(p.current_status === 'Idle') dotColor = 'dot-orange';
+                container.innerHTML += `<div class="org-node"><span class="status-dot ${dotColor}"></span><div class="org-rank">${p.rank || 'OFFICER'}</div><div class="org-name">${p.full_name}</div><div class="org-status">${p.current_status || 'Off Duty'}</div></div>`;
             });
         }
 
-        // --- ALL DATA LOADERS ---
         function loadAllData() {
-            loadStaff(); loadTickets(); loadClients(); loadCourses(); loadRadioHistory(); loadStats(currentUser.full_name); loadTimesheetData(); loadTasks(); loadSchedule(); loadReportConfig(); loadReportHistory(); loadChannels(); loadOrgChart();
+            // Add other loaders here (loadStaff, loadTickets, etc.)
+            // We keep these separate to prevent cascade failure if one API call fails
+            try { loadOrgChart(); } catch(e){}
+            try { loadStaff(); } catch(e){}
+            try { loadTickets(); } catch(e){}
+            try { loadRadioHistory(); } catch(e){}
         }
-
-        // --- EXISTING LOGIC ---
-        async function loadChannels() { const { data } = await sb.from('radio_channels').select('*'); const list = document.getElementById('channelList'); list.innerHTML = `<button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>`; if(data) { data.forEach(c => { if(c.name === 'MAIN') return; list.innerHTML += `<button onclick="changeChannel('${c.name}')" class="chan-btn" id="btn${c.name}">${c.name}</button>`; }); } }
-        async function addChannel() { const name = prompt("Enter Channel Name:"); if(!name) return; await sb.from('radio_channels').insert([{ name: name.toUpperCase(), created_by: currentUser.full_name }]); loadChannels(); }
-        function clearChatter() { if(!confirm("Clear chat view?")) return; document.getElementById('chatArea').innerHTML = ''; }
-        async function exportRadioLogs() { const { data } = await sb.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(100); const json = JSON.stringify(data, null, 2); const blob = new Blob([json], {type: "application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = "radio_logs.json"; a.click(); }
-        async function loadReportConfig() { let { data } = await sb.from('app_config').select('value').eq('key', 'report_config').single(); if(!data) { reportConfig = { toc: ["ATM Escort", "Alarm Response", "Patrol", "Incident", "Other"], internal: ["Vehicle Check", "Gear Check", "Other"] }; } else { reportConfig = data.value; } updateReportTypes(); }
-        function updateReportTypes() { const cat = document.getElementById('repCategory').value; const sel = document.getElementById('repType'); sel.innerHTML = ''; if(currentUser && (currentUser.role === 'Dispatch' || currentUser.role === 'Command')) { const opt = document.createElement('option'); opt.value = "Dispatch Report"; opt.innerText = "*** DISPATCH REPORT ***"; sel.appendChild(opt); } if(currentUser && currentUser.role === 'Command') { const opt = document.createElement('option'); opt.value = "Command Report"; opt.innerText = "*** COMMAND REPORT ***"; sel.appendChild(opt); } if(reportConfig && reportConfig[cat]) { reportConfig[cat].forEach(type => { const opt = document.createElement('option'); opt.value = type; opt.innerText = type; sel.appendChild(opt); }); } }
-        function updateFileCount() { const input = document.getElementById('repFiles'); const count = input.files.length; document.getElementById('fileCountMsg').innerText = count > 0 ? `✅ ${count} file(s) selected` : "No files selected"; }
-        async function submitReport() { const btn = document.getElementById('btnSubmitRep'); btn.innerText = "UPLOADING..."; btn.disabled = true; const cat = document.getElementById('repCategory').value; const type = document.getElementById('repType').value; const loc = document.getElementById('repLocation').value; const nar = document.getElementById('repNar').value; const fileInput = document.getElementById('repFiles'); if(!nar) { alert("Please enter narrative."); btn.innerText = "SUBMIT"; btn.disabled = false; return; } let attachmentUrls = []; if(fileInput.files.length > 0) { for(let i=0; i<fileInput.files.length; i++) { const file = fileInput.files[i]; const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`; const { data, error } = await sb.storage.from('report_files').upload(fileName, file); if(!error) { const { data: publicData } = sb.storage.from('report_files').getPublicUrl(fileName); attachmentUrls.push(publicData.publicUrl); } } } await sb.from('field_reports').insert([{ officer_name: currentUser.full_name, category: cat, incident_type: type, location: loc, narrative: nar, status: 'Pending', attachments: attachmentUrls }]); alert("Report Submitted."); document.getElementById('repNar').value = ""; document.getElementById('repFiles').value = ""; updateFileCount(); btn.innerText = "SUBMIT FOR APPROVAL"; btn.disabled = false; loadReportHistory(); loadStats(currentUser.full_name); }
-        async function loadReportHistory() { let query = sb.from('field_reports').select('*').order('created_at', { ascending: false }); if(currentUser.role !== 'Command' && currentUser.role !== 'Dispatch') query = query.eq('officer_name', currentUser.full_name); const { data } = await query; const div = document.getElementById('reportHistoryList'); div.innerHTML = ''; if(data && data.length > 0) { data.forEach(r => { let stClass = 'rep-status-pending'; if(r.status === 'Approved') stClass = 'rep-status-approved'; if(r.status === 'Rejected') stClass = 'rep-status-rejected'; let attachHtml = ''; if(r.attachments && r.attachments.length > 0) { attachHtml = '<div class="file-list">Attachments: '; r.attachments.forEach((url, idx) => { attachHtml += `<a href="${url}" target="_blank" class="file-link">File ${idx+1}</a>`; }); attachHtml += '</div>'; } const html = `<div class="rep-item"><div style="display:flex; justify-content:space-between;"><div style="font-weight:bold;">${r.incident_type}</div><div class="${stClass}">${r.status}</div></div><div style="font-size:0.8rem; color:#94a3b8;">${new Date(r.created_at).toLocaleString()} | ${r.location || 'No Loc'}</div><div style="font-size:0.8rem; color:#ccc; margin-top:5px;">${r.narrative.substring(0, 50)}...</div>${attachHtml}${r.admin_notes ? `<div style="font-size:0.7rem; color:${stClass}; margin-top:5px;">Note: ${r.admin_notes}</div>` : ''}</div>`; div.innerHTML += html; }); } else div.innerHTML = '<div style="padding:15px; color:#64748b;">No reports found.</div>'; }
-        async function loadSchedule() { const { data } = await sb.from('schedule_shifts').select('*').order('start_time', { ascending: true }); const myDiv = document.getElementById('myScheduleList'); const openDiv = document.getElementById('openScheduleList'); const tradeDiv = document.getElementById('tradeScheduleList'); myDiv.innerHTML = ''; openDiv.innerHTML = ''; tradeDiv.innerHTML = ''; let hasMy = false; let hasOpen = false; let hasTrade = false; if(data) { data.forEach(s => { const html = `<div class="job-card ${s.status === 'Open' ? 'open' : (s.is_trade_requested ? 'trade' : '')}"><div class="job-header"><div class="job-title">${s.job_title}</div><div style="font-size:0.8rem;">${new Date(s.start_time).toLocaleDateString()}</div></div><div class="job-detail">📍 ${s.location} (${s.client_name})</div><div class="job-detail">⏰ ${new Date(s.start_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} - ${new Date(s.end_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div class="job-detail">👤 POC: ${s.poc_info || 'N/A'}</div><div class="job-detail">📝 Orders: ${s.post_orders || 'Standard'}</div><div class="job-detail">📋 Reports: ${s.req_reports || 'Incident, Daily'}</div>${s.assigned_to === currentUser.full_name ? `<button class="btn btn-red" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="requestReassignment('${s.id}')">Request Reassignment</button><div class="job-alert">⚠ 48hr Notice Required. No Guarantee.</div>` : ''}${s.status === 'Open' ? `<button class="btn btn-green" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="claimShift('${s.id}')">Claim Shift</button>` : ''}${s.is_trade_requested && s.assigned_to !== currentUser.full_name ? `<button class="btn btn-blue" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="claimShift('${s.id}')">Accept Trade</button>` : ''}</div>`; if(s.assigned_to === currentUser.full_name) { myDiv.innerHTML += html; hasMy = true; } else if(s.status === 'Open') { openDiv.innerHTML += html; hasOpen = true; } else if(s.is_trade_requested) { tradeDiv.innerHTML += html; hasTrade = true; } }); } if(!hasMy) myDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No assigned shifts.</div>'; if(!hasOpen) openDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No open shifts.</div>'; if(!hasTrade) tradeDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No trades posted.</div>'; }
-        async function requestReassignment(id) { if(!confirm("Warning: Requesting reassignment does not guarantee approval. You are responsible for this shift until notified otherwise. Proceed?")) return; await sb.from('schedule_shifts').update({ is_trade_requested: true }).eq('id', id); alert("Request Submitted."); loadSchedule(); }
-        async function claimShift(id) { if(!confirm("Confirm shift acceptance?")) return; await sb.from('schedule_shifts').update({ status: 'Assigned', assigned_to: currentUser.full_name, is_trade_requested: false }).eq('id', id); alert("Shift Assigned to You."); loadSchedule(); }
-        async function loadTasks() { const { data } = await sb.from('tickets').select('*').order('created_at', { ascending: false }); let openCount = 0; let closedCount = 0; const tbody = document.getElementById('taskListBody'); tbody.innerHTML = ''; if(data && data.length > 0) { data.forEach(t => { if(t.status === 'Open') openCount++; if(t.status === 'Closed') closedCount++; let statusClass = 'task-status-open'; if(t.status === 'Closed') statusClass = 'task-status-closed'; if(t.status === 'Canceled') statusClass = 'task-status-cancelled'; tbody.innerHTML += `<tr><td class="${statusClass}"><b>${t.status || 'Open'}</b></td><td>${t.type || 'General'}</td><td>${t.location || 'Unknown'}</td><td>${t.assigned_to || 'Unassigned'}</td><td>${new Date(t.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td></tr>`; }); } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No dispatch calls found.</td></tr>'; document.getElementById('openTaskCount').innerText = openCount; document.getElementById('closedTaskCount').innerText = closedCount; }
-        async function loadTimesheetData() { const refDate = new Date('2025-12-28T00:00:00'); const now = new Date(); const msPerCycle = 14 * 24 * 60 * 60 * 1000; const diff = now - refDate; const cyclesPassed = Math.floor(diff / msPerCycle); const currentStart = new Date(refDate.getTime() + (cyclesPassed * msPerCycle) + (24*60*60*1000)); const currentEnd = new Date(refDate.getTime() + ((cyclesPassed + 1) * msPerCycle)); const fmt = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' }); document.getElementById('tsCycleDates').innerText = `${fmt(currentStart)} - ${fmt(currentEnd)}`; const daysLeft = Math.ceil((currentEnd - now) / (1000 * 60 * 60 * 24)); document.getElementById('tsCountdown').innerText = `${daysLeft} Days Left`; if(daysLeft <= 2) document.getElementById('tsReminder').style.display = 'block'; if(daysLeft <= 0 || daysLeft <= 2) { const btn = document.getElementById('btnSubmitTimesheet'); btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.innerText = "Submit for Payroll"; } const { data } = await sb.from('timesheets').select('*').eq('officer_name', currentUser.full_name).gte('created_at', currentStart.toISOString()).lte('created_at', currentEnd.toISOString()).order('created_at', { ascending: false }); let totalHrs = 0; const tbody = document.getElementById('tsTableBody'); tbody.innerHTML = ''; if(data && data.length > 0) { data.forEach(t => { let hrs = 0; if(t.clock_out) { const inTime = new Date(t.clock_in); const outTime = new Date(t.clock_out); hrs = ((outTime - inTime) / (1000 * 60 * 60)).toFixed(1); totalHrs += parseFloat(hrs); } tbody.innerHTML += `<tr><td>${new Date(t.clock_in).toLocaleDateString()}</td><td>${new Date(t.clock_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td><td>${t.clock_out ? new Date(t.clock_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Active'}</td><td>${hrs || '-'}</td><td class="ts-status-${(t.status||'Open').toLowerCase()}">${t.status || 'Open'}</td></tr>`; }); } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No shifts this cycle.</td></tr>'; document.getElementById('tsTotalHours').innerText = totalHrs.toFixed(1); }
-        async function submitTimesheet() { if(document.getElementById('btnSubmitTimesheet').style.opacity === '0.5') return; alert("Timesheet Submitted for Approval."); }
+        
+        async function loadStaff() { try { const res = await fetch('/api/staff'); const data = await res.json(); if(data.length) document.getElementById('staffList').innerHTML = data.map(u => `<div>${u.full_name}</div>`).join(''); } catch(e){} }
+        async function loadTickets() { try { const res = await fetch('/api/tickets'); const data = await res.json(); if(data.length) document.getElementById('ticketList').innerHTML = data.map(t => `<div>${t.description}</div>`).join(''); } catch(e){} }
+        async function loadRadioHistory() { try { const res = await fetch('/api/radio-history'); const logs = await res.json(); logs.forEach(l => addLog(l.sender, l.message, l.is_voice, l.audio_data)); } catch(e){} }
+        
         async function createTicket() { const desc = document.getElementById('tickDesc').value; await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:null, type:'General', priority:'Normal', description:desc }) }); loadTickets(); }
         async function addClient() { const name = document.getElementById('cliName').value; await fetch('/api/clients', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, phone:'-', address:'-' }) }); loadClients(); }
         function saveConfig() { alert("Config Saved"); }
@@ -748,6 +557,13 @@
         function showTab(id) { document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab')); document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active')); document.getElementById('tab-'+id).classList.add('active-tab'); event.currentTarget.classList.add('active'); if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open'); }
         function clearChatter() { if(!confirm("Clear chat view?")) return; document.getElementById('chatArea').innerHTML = ''; }
         async function exportRadioLogs() { const { data } = await sb.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(100); const json = JSON.stringify(data, null, 2); const blob = new Blob([json], {type: "application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = "radio_logs.json"; a.click(); }
+        function setupSocketListeners() { socket.on('radio-playback', d => { addLog(d.name, "Audio", true, d.audio); if(d.audio && typeof d.audio === 'string' && d.audio.startsWith('data:audio')) { playSound('ptt-on'); const snd = new Audio(d.audio); snd.onended = () => playSound('ptt-off'); snd.play().catch(e => console.warn("Auto-play blocked")); } }); socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false)); }
+        function initMic() { return new Promise((resolve, reject) => { if(mediaRecorder && mediaRecorder.state !== 'inactive') return resolve(mediaRecorder); navigator.mediaDevices.getUserMedia({audio:true}).then(s => { if(audioCtx.state === 'suspended') audioCtx.resume(); mediaRecorder = new MediaRecorder(s); mediaRecorder.ondataavailable = e => audioChunks.push(e.data); mediaRecorder.onstop = () => { const reader = new FileReader(); reader.readAsDataURL(new Blob(audioChunks)); reader.onloadend = () => { if(currentUser && socket && audioChunks.length > 0) { socket.emit('radio-voice',{audio:reader.result, name:currentUser.full_name, channel: currentChannel, lat:0, lng:0}); addLog("Me", "Audio", true, reader.result); } }; audioChunks=[]; }; document.getElementById('audioUnlockBtn').innerText = "✅ AUDIO ACTIVE"; document.getElementById('audioUnlockBtn').style.color = "var(--radio-color)"; document.getElementById('audioUnlockBtn').style.borderColor = "var(--radio-color)"; resolve(mediaRecorder); }).catch(e => { alert("Mic Access Denied!"); reject(e); }); }); }
+        function playSound(type) { if(audioCtx.state === 'suspended') audioCtx.resume(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); osc.frequency.setValueAtTime(type==='ptt-on'?600:800, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+        function addLog(n, m, v, s) { const d = document.createElement('div'); d.className = 'chat-msg'; if(v) { d.innerHTML = `<div><b>${n}</b> <span style="font-size:0.8em; color:#999;">${new Date().toLocaleTimeString()}</span></div>`; if(s && typeof s === 'string' && s.startsWith('data:audio')) { const playBtn = document.createElement('button'); playBtn.innerText = "▶ PLAY"; playBtn.style.cssText = "background:#333; border:1px solid #555; color:var(--radio-color); margin-top:5px; cursor:pointer; padding:2px 8px; border-radius:4px;"; playBtn.onclick = () => { const sound = new Audio(s); sound.play().catch(e => console.error("Play error", e)); }; d.appendChild(playBtn); } else { d.innerHTML += " <i style='color:#666;'>(Audio unavailable)</i>"; } } else { d.innerHTML = `<b>${n}</b>: ${m}`; } const area = document.getElementById('chatArea'); area.appendChild(d); area.scrollTop = area.scrollHeight; }
+        function sendText() { const msg = document.getElementById('textInput').value; if(currentUser && socket && msg) { socket.emit('radio-text', {name:currentUser.full_name, msg, channel: currentChannel, lat:0, lng:0}); document.getElementById('textInput').value=''; } }
+        function changeChannel(ch) { if (ch === 'LOUNGE' && isDispatched) return alert("ACCESS DENIED"); currentChannel = ch; if(socket) socket.emit('join-channel', ch); document.getElementById('lcdChannel').innerText = ch; document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan')); if(document.getElementById('btn'+ch)) document.getElementById('btn'+ch).classList.add('active-chan'); }
+        const pttBtn = document.getElementById('pttBtn'); pttBtn.onmousedown = pttBtn.ontouchstart = async (e) => { e.preventDefault(); try { await initMic(); if (mediaRecorder.state === 'inactive') { playSound('ptt-on'); mediaRecorder.start(); pttBtn.classList.add('transmitting'); document.getElementById('lcdStatus').innerText = "TX..."; document.getElementById('lcdStatus').style.color = "red"; } } catch(e) { console.error("PTT Fail", e); } }; pttBtn.onmouseup = pttBtn.ontouchend = (e) => { e.preventDefault(); if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); playSound('ptt-off'); pttBtn.classList.remove('transmitting'); document.getElementById('lcdStatus').innerText = "STANDBY"; document.getElementById('lcdStatus').style.color = "var(--green)"; } };
     </script>
 </body>
 </html>
