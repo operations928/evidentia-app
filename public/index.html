@@ -21,7 +21,7 @@
         let currentChannel = 'MAIN';
         let isClockedIn = false; 
         let isIdle = false; 
-        let isDispatched = false; // FIXED: Missing variable restored
+        let isDispatched = false; 
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = audioCtx.createGain(); 
         masterGain.connect(audioCtx.destination);
@@ -79,7 +79,58 @@
             }
         }
 
+        // --- COMMAND: CREATE NEW USER (Without Logout) ---
+        async function createPersonnel() {
+            if(!currentUser || currentUser.role !== 'Command') return alert("Unauthorized.");
+
+            const email = document.getElementById('newEmail').value;
+            const password = document.getElementById('newPass').value;
+            const name = document.getElementById('newName').value;
+            const rank = document.getElementById('newRank').value;
+            const role = document.getElementById('newRole').value;
+            const callsign = document.getElementById('newCall').value;
+
+            if(!email || !password || !name) return alert("Email, Password and Name are required.");
+
+            // TRICK: Create a secondary client to sign up the new user 
+            // so the current Command session is not destroyed.
+            const tempSb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+            try {
+                const { data, error } = await tempSb.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: { full_name: name } // Init metadata
+                    }
+                });
+
+                if(error) throw error;
+
+                if(data.user) {
+                    // Now update the specific profile details using the Main Admin Client
+                    await sb.from('profiles').update({
+                        rank: rank,
+                        role: role,
+                        call_sign: callsign,
+                        full_name: name,
+                        current_status: 'Off Duty'
+                    }).eq('id', data.user.id);
+
+                    alert("Personnel Created Successfully: " + name);
+                    document.getElementById('newEmail').value = "";
+                    document.getElementById('newPass').value = "";
+                    document.getElementById('newName').value = "";
+                    loadStaff(); // Refresh list
+                }
+
+            } catch (e) {
+                alert("Creation Failed: " + e.message);
+            }
+        }
+
         async function handleSignup() {
+            // Public signup (for recruits)
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
@@ -115,6 +166,7 @@
 
         async function toggleIdle() {
             if(!isClockedIn) return alert("You must be clocked in.");
+            
             isIdle = !isIdle;
             const status = isIdle ? 'Idle' : 'Active';
             
@@ -182,7 +234,7 @@
         .radio-silo { width: 360px; background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-left: 4px solid #333; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.5); padding: 10px; }
         .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; box-shadow: inset 0 0 20px #000; display: flex; flex-direction: column; height: 100%; }
         .radio-screen-container { background: #000; padding: 5px; border-radius: 8px; border: 1px solid #555; margin-bottom: 10px; box-shadow: inset 0 0 10px #000; }
-        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; transition: all 0.2s; }
+        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; border: 1px solid #555; }
         .radio-header { border-bottom: 2px dashed #550f0f; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         .chat-log { flex: 1; overflow-y: auto; font-size: 0.8rem; }
         .control-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px solid #333; }
@@ -278,7 +330,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v21.1 SAFE LOAD</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v26.0 COMMAND ADD</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -301,7 +353,7 @@
             <div class="nav-cat">Command</div>
             <button class="nav-btn" onclick="showTab('tickets')"><span>🎫</span> Tickets</button>
             <button class="nav-btn" onclick="showTab('clients')"><span>🤝</span> Clients</button>
-            <button class="nav-btn" onclick="showTab('staff')"><span>👥</span> Staff List</button>
+            <button class="nav-btn" onclick="showTab('staff')"><span>👥</span> Staff Mgmt</button>
             <button class="nav-btn" onclick="showTab('admin')"><span>⚙️</span> Config</button>
         </div>
         
@@ -439,12 +491,45 @@
                 <div id="tab-schedule" class="tab-content"><h2>Scheduled Operations</h2><div class="card"><h3>My Assigned Shifts</h3><div id="myScheduleList">Loading...</div></div><div class="card" style="border-left: 4px solid var(--green);"><h3>Open Shifts (Available)</h3><div id="openScheduleList">Loading...</div></div><div class="card" style="border-left: 4px solid var(--orange);"><h3>Shift Trade Board</h3><div id="tradeScheduleList">Loading...</div></div></div>
                 <div id="tab-tasks" class="tab-content"><h2>TOC Tasks & Dispatch</h2><div class="card" style="background:#1e293b; border-left: 4px solid var(--accent);"><div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:2rem; font-weight:bold; color:white;" id="openTaskCount">0</div><div style="font-size:0.8rem; color:#94a3b8;">OPEN INCIDENTS</div></div><div style="text-align:right;"><div style="font-size:2rem; font-weight:bold; color:var(--green);" id="closedTaskCount">0</div><div style="font-size:0.8rem; color:#94a3b8;">CLOSED TODAY</div></div></div></div><div class="card"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><h3>Dispatch Log</h3><button class="btn btn-blue" style="font-size:0.7rem; padding:5px 10px;" onclick="loadTasks()">REFRESH</button></div><div style="overflow-x:auto;"><table class="ts-table"><thead><tr><th>Status</th><th>Type</th><th>Location</th><th>Assigned</th><th>Time</th></tr></thead><tbody id="taskListBody"><tr><td colspan="5" style="text-align:center;">Loading tasks...</td></tr></tbody></table></div></div></div>
                 <div id="tab-reports" class="tab-content"><h2>Report Writer</h2><div class="card"><h3>New Report</h3><div class="grid-2"><div><label class="doc-label">Category</label><select id="repCategory" class="form-input" onchange="updateReportTypes()"><option value="toc">TOC Task Report</option><option value="internal">Internal Report</option></select></div><div><label class="doc-label">Report Type</label><select id="repType" class="form-input"></select></div></div><div style="margin-top:10px;"><label class="doc-label">Location / Asset ID</label><input type="text" id="repLocation" class="form-input" placeholder="e.g. 123 Main St OR Vehicle #404"></div><div style="margin-top:10px;"><label class="doc-label">Narrative / Details</label><textarea id="repNar" class="form-input" rows="6" placeholder="Describe the incident, inspection, or task details..."></textarea></div><div style="margin-top:15px; border-top:1px solid #334155; padding-top:10px;"><label class="doc-label">📎 Attachments</label><label class="doc-upload-box"><span style="font-size:1.5rem;">📂</span><span>Select Files</span><input type="file" id="repFiles" multiple style="display:none;" onchange="updateFileCount()"></label><div id="fileCountMsg" style="font-size:0.8rem; color:#94a3b8; text-align:center;">No files selected</div></div><button class="btn btn-blue" style="width:100%; margin-top:10px;" id="btnSubmitRep" onclick="submitReport()">SUBMIT FOR APPROVAL</button></div><div class="card"><h3>Report History (Status)</h3><div id="reportHistoryList">Loading...</div></div></div>
-                <div id="tab-staff" class="tab-content"><h2>Staff</h2><div class="card" id="staffList">Loading...</div></div>
+                
+                <div id="tab-staff" class="tab-content">
+                    <h2>Staff Management</h2>
+                    
+                    <div class="card" id="commandStaffTools" style="display:none; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05);">
+                        <h3 style="color:#f59e0b; margin-top:0;">COMMAND: Add Personnel</h3>
+                        <div class="grid-2">
+                            <div><label class="doc-label">Email</label><input type="email" id="newEmail" class="form-input" autocomplete="off"></div>
+                            <div><label class="doc-label">Password</label><input type="text" id="newPass" class="form-input" autocomplete="off"></div>
+                            <div><label class="doc-label">Full Name</label><input type="text" id="newName" class="form-input"></div>
+                            <div><label class="doc-label">Call Sign</label><input type="text" id="newCall" class="form-input"></div>
+                            <div>
+                                <label class="doc-label">Rank</label>
+                                <select id="newRank" class="form-input">
+                                    <option>Recruit</option><option>Officer</option><option>Corporal</option><option>Sergeant</option>
+                                    <option>Lieutenant</option><option>Captain</option><option>Commander</option><option>Chief</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="doc-label">Role</label>
+                                <select id="newRole" class="form-input">
+                                    <option value="Officer">Officer</option>
+                                    <option value="Dispatch">Dispatch</option>
+                                    <option value="Command">Command</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-orange" style="width:100%; margin-top:10px;" onclick="createPersonnel()">CREATE & CONFIGURE USER</button>
+                    </div>
+
+                    <div class="card" id="staffList">Loading...</div>
+                </div>
+
                 <div id="tab-tickets" class="tab-content"><h2>Tickets</h2><div class="card"><input type="text" id="tickDesc" class="form-input" placeholder="Ticket Description"><button class="btn btn-green" onclick="createTicket()">Create Ticket</button></div><div class="card"><div id="ticketList">Loading...</div></div></div>
                 <div id="tab-clients" class="tab-content"><h2>Clients</h2><div class="card"><input type="text" id="cliName" class="form-input" placeholder="Client Name"><button class="btn btn-blue" onclick="addClient()">Add Client</button></div><div class="card"><div id="clientList">Loading...</div></div></div>
                 <div id="tab-admin" class="tab-content"><h2>Config</h2><div class="card"><button class="btn btn-blue" onclick="saveConfig()">Update Config</button></div></div>
-                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="app-grid"><a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a><a href="https://map.navdrone.ca" target="_blank" class="app-icon">🚁<span>NavDrone</span></a><a href="https://app.connecteam.com" target="_blank" class="app-icon">📱<span>Connecteam</span></a><a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a></div></div>
+                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="app-grid"><a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a><a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a></div></div>
                 <div id="tab-training" class="tab-content"><h2>Academy</h2><div class="card" id="courseList">Loading courses...</div></div>
+
             </div>
         </div>
     </div>
@@ -502,14 +587,14 @@
                     document.getElementById('dashName').innerText = "Officer: " + (profile.full_name || "Unknown");
                     document.getElementById('dashRole').innerText = "Role: " + (profile.role || "Unassigned");
                     
-                    // STATS (SAFE LOAD - Safety check added)
+                    // STATS (SAFE LOAD)
                     const totalAssign = (profile.stats_accepted || 0) + (profile.stats_refused || 0);
                     const refusalRatio = totalAssign > 0 ? ((profile.stats_refused / totalAssign) * 100).toFixed(1) + "%" : "0%";
                     if(document.getElementById('stRefuse')) document.getElementById('stRefuse').innerText = refusalRatio;
                     if(document.getElementById('stTrain')) document.getElementById('stTrain').innerText = (profile.stats_training_hours || 0) + "h";
                     if(document.getElementById('stIdle')) document.getElementById('stIdle').innerText = (profile.stats_idle_hours || 0) + "h";
 
-                    // OPS BREAKDOWN (SAFE LOAD)
+                    // OPS BREAKDOWN
                     const opsDiv = document.getElementById('opsBreakdown');
                     if(opsDiv) {
                         opsDiv.innerHTML = '';
@@ -525,11 +610,11 @@
                     document.getElementById('profName').value = profile.full_name || "";
                     document.getElementById('profRank').value = profile.rank || "";
                     document.getElementById('profCallSign').value = profile.call_sign || "";
-                    document.getElementById('profTitle').value = profile.role || ""; 
+                    document.getElementById('profTitle').value = profile.role || ""; 
                     document.getElementById('profTeam').value = profile.team_name || "";
                     document.getElementById('profManager').value = profile.direct_manager || "";
                     document.getElementById('profSecLicNum').value = profile.security_license_number || "";
-                    document.getElementById('profPhone').value = profile.phone || ""; 
+                    document.getElementById('profPhone').value = profile.phone || ""; 
                     document.getElementById('profStart').value = profile.start_date || "";
                     document.getElementById('profTerm').value = profile.term_date || "";
                     
@@ -553,6 +638,8 @@
                         document.getElementById('profLockMsg').style.display = 'none';
                         document.getElementById('commandLinks').style.display = 'block';
                         document.getElementById('cmdRadioTools').style.display = 'block';
+                        // SHOW STAFF TOOLS IF COMMAND
+                        if(document.getElementById('commandStaffTools')) document.getElementById('commandStaffTools').style.display = 'block';
                     }
                     
                     if(socket) {
@@ -589,7 +676,6 @@
             if(data) {
                 data.forEach(fence => {
                     const d = map.distance([lat, lng], [fence.lat, fence.lng]);
-                    // Logic to alert if inside zone can go here
                 });
             }
         }
@@ -610,6 +696,7 @@
         async function loadOrgChart() {
             const { data } = await sb.from('profiles').select('full_name, rank, current_status').neq('full_name', null);
             const container = document.getElementById('orgChartContainer');
+            if(!container) return;
             container.innerHTML = '';
             
             const rankOrder = { 'Chief':1, 'Deputy Chief':2, 'Commander':3, 'Captain':4, 'Lieutenant':5, 'Sergeant':6, 'Corporal':7, 'Officer':8, 'Recruit':9, 'Unassigned':10 };
@@ -654,37 +741,6 @@
         async function loadTasks() { const { data } = await sb.from('tickets').select('*').order('created_at', { ascending: false }); let openCount = 0; let closedCount = 0; const tbody = document.getElementById('taskListBody'); tbody.innerHTML = ''; if(data && data.length > 0) { data.forEach(t => { if(t.status === 'Open') openCount++; if(t.status === 'Closed') closedCount++; let statusClass = 'task-status-open'; if(t.status === 'Closed') statusClass = 'task-status-closed'; if(t.status === 'Canceled') statusClass = 'task-status-cancelled'; tbody.innerHTML += `<tr><td class="${statusClass}"><b>${t.status || 'Open'}</b></td><td>${t.type || 'General'}</td><td>${t.location || 'Unknown'}</td><td>${t.assigned_to || 'Unassigned'}</td><td>${new Date(t.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td></tr>`; }); } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No dispatch calls found.</td></tr>'; document.getElementById('openTaskCount').innerText = openCount; document.getElementById('closedTaskCount').innerText = closedCount; }
         async function loadTimesheetData() { const refDate = new Date('2025-12-28T00:00:00'); const now = new Date(); const msPerCycle = 14 * 24 * 60 * 60 * 1000; const diff = now - refDate; const cyclesPassed = Math.floor(diff / msPerCycle); const currentStart = new Date(refDate.getTime() + (cyclesPassed * msPerCycle) + (24*60*60*1000)); const currentEnd = new Date(refDate.getTime() + ((cyclesPassed + 1) * msPerCycle)); const fmt = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' }); document.getElementById('tsCycleDates').innerText = `${fmt(currentStart)} - ${fmt(currentEnd)}`; const daysLeft = Math.ceil((currentEnd - now) / (1000 * 60 * 60 * 24)); document.getElementById('tsCountdown').innerText = `${daysLeft} Days Left`; if(daysLeft <= 2) document.getElementById('tsReminder').style.display = 'block'; if(daysLeft <= 0 || daysLeft <= 2) { const btn = document.getElementById('btnSubmitTimesheet'); btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.innerText = "Submit for Payroll"; } const { data } = await sb.from('timesheets').select('*').eq('officer_name', currentUser.full_name).gte('created_at', currentStart.toISOString()).lte('created_at', currentEnd.toISOString()).order('created_at', { ascending: false }); let totalHrs = 0; const tbody = document.getElementById('tsTableBody'); tbody.innerHTML = ''; if(data && data.length > 0) { data.forEach(t => { let hrs = 0; if(t.clock_out) { const inTime = new Date(t.clock_in); const outTime = new Date(t.clock_out); hrs = ((outTime - inTime) / (1000 * 60 * 60)).toFixed(1); totalHrs += parseFloat(hrs); } tbody.innerHTML += `<tr><td>${new Date(t.clock_in).toLocaleDateString()}</td><td>${new Date(t.clock_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td><td>${t.clock_out ? new Date(t.clock_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Active'}</td><td>${hrs || '-'}</td><td class="ts-status-${(t.status||'Open').toLowerCase()}">${t.status || 'Open'}</td></tr>`; }); } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No shifts this cycle.</td></tr>'; document.getElementById('tsTotalHours').innerText = totalHrs.toFixed(1); }
         async function submitTimesheet() { if(document.getElementById('btnSubmitTimesheet').style.opacity === '0.5') return; alert("Timesheet Submitted for Approval."); }
-        async function saveProfile() { 
-            if(!currentUser) return;
-            const updates = { phone: document.getElementById('profPhone').value };
-            // COMMAND ONLY
-            if(['Admin','Command','Dispatch'].includes(currentUser.role)) {
-                updates.rank = document.getElementById('profRank').value;
-                updates.call_sign = document.getElementById('profCallSign').value;
-                updates.role = document.getElementById('profTitle').value;
-                updates.team_name = document.getElementById('profTeam').value;
-                updates.direct_manager = document.getElementById('profManager').value;
-                updates.security_license_number = document.getElementById('profSecLicNum').value;
-                updates.start_date = document.getElementById('profStart').value || null;
-                updates.term_date = document.getElementById('profTerm').value || null;
-            }
-            const { error } = await sb.from('profiles').update(updates).eq('id', currentUser.id);
-            if(error) alert("Error saving: " + error.message); else alert("Personnel File Updated.");
-        }
-        function uploadDoc(col, input) { const file = input.files[0]; if(!file || file.size > 5*1024*1024) return alert("File too large"); const reader = new FileReader(); reader.onloadend = async () => { let up = {}; up[col] = reader.result; await sb.from('profiles').update(up).eq('id', currentUser.id); alert("Document Uploaded."); }; reader.readAsDataURL(file); }
-        async function uploadProfilePic() { const file = document.getElementById('picInput').files[0]; if(!file) return; const reader = new FileReader(); reader.onloadend = async () => { document.getElementById('profPicDisplay').src = reader.result; document.getElementById('setupPicDisplay').src = reader.result; await sb.from('profiles').update({ profile_pic_url: reader.result }).eq('id', currentUser.id); }; reader.readAsDataURL(file); }
-        async function loadStats(name) { try { const res = await fetch('/api/stats/' + name); const data = await res.json(); document.getElementById('statReports').innerText = data.reports || 0; document.getElementById('statHours').innerText = data.hours || "0.0"; } catch(e) {} }
-        async function loadStaff() { const res = await fetch('/api/staff'); const data = await res.json(); const div = document.getElementById('staffList'); if(data.length === 0) { div.innerHTML = "No staff found."; return; } let html = '<table style="width:100%; border-collapse:collapse;"><tr><th>Name</th><th>Role</th></tr>'; data.forEach(u => html += `<tr><td style="padding:8px; border-bottom:1px solid #333">${u.full_name}</td><td style="padding:8px; border-bottom:1px solid #333">${u.role}</td></tr>`); div.innerHTML = html + '</table>'; }
-        async function loadTickets() { const res = await fetch('/api/tickets'); const data = await res.json(); document.getElementById('ticketList').innerHTML = data.length ? data.map(t => `<div style="padding:10px; border-bottom:1px solid #333">${t.description} (${t.priority})</div>`).join('') : "No tickets."; }
-        async function loadClients() { const res = await fetch('/api/clients'); const data = await res.json(); document.getElementById('clientList').innerHTML = data.length ? data.map(c => `<div style="padding:10px; border-bottom:1px solid #333">${c.name}</div>`).join('') : "No clients."; }
-        async function loadCourses() { const res = await fetch('/api/courses'); const data = await res.json(); document.getElementById('courseList').innerHTML = data.length ? data.map(c => `<div>${c.title}</div>`).join('') : "No courses."; }
-        function setupSocketListeners() { socket.on('radio-playback', d => { addLog(d.name, "Audio", true, d.audio); if(d.audio && typeof d.audio === 'string' && d.audio.startsWith('data:audio')) { playSound('ptt-on'); const snd = new Audio(d.audio); snd.onended = () => playSound('ptt-off'); snd.play().catch(e => console.warn("Auto-play blocked")); } }); socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false)); }
-        function initMic() { return new Promise((resolve, reject) => { if(mediaRecorder && mediaRecorder.state !== 'inactive') return resolve(mediaRecorder); navigator.mediaDevices.getUserMedia({audio:true}).then(s => { if(audioCtx.state === 'suspended') audioCtx.resume(); mediaRecorder = new MediaRecorder(s); mediaRecorder.ondataavailable = e => audioChunks.push(e.data); mediaRecorder.onstop = () => { const reader = new FileReader(); reader.readAsDataURL(new Blob(audioChunks)); reader.onloadend = () => { if(currentUser && socket && audioChunks.length > 0) { socket.emit('radio-voice',{audio:reader.result, name:currentUser.full_name, channel: currentChannel, lat:0, lng:0}); addLog("Me", "Audio", true, reader.result); } }; audioChunks=[]; }; document.getElementById('audioUnlockBtn').innerText = "✅ AUDIO ACTIVE"; document.getElementById('audioUnlockBtn').style.color = "var(--radio-color)"; document.getElementById('audioUnlockBtn').style.borderColor = "var(--radio-color)"; resolve(mediaRecorder); }).catch(e => { alert("Mic Access Denied!"); reject(e); }); }); }
-        function playSound(type) { if(audioCtx.state === 'suspended') audioCtx.resume(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); osc.frequency.setValueAtTime(type==='ptt-on'?600:800, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
-        function addLog(n, m, v, s) { const d = document.createElement('div'); d.className = 'chat-msg'; if(v) { d.innerHTML = `<div><b>${n}</b> <span style="font-size:0.8em; color:#999;">${new Date().toLocaleTimeString()}</span></div>`; if(s && typeof s === 'string' && s.startsWith('data:audio')) { const playBtn = document.createElement('button'); playBtn.innerText = "▶ PLAY"; playBtn.style.cssText = "background:#333; border:1px solid #555; color:var(--radio-color); margin-top:5px; cursor:pointer; padding:2px 8px; border-radius:4px;"; playBtn.onclick = () => { const sound = new Audio(s); sound.play().catch(e => console.error("Play error", e)); }; d.appendChild(playBtn); } else { d.innerHTML += " <i style='color:#666;'>(Audio unavailable)</i>"; } } else { d.innerHTML = `<b>${n}</b>: ${m}`; } const area = document.getElementById('chatArea'); area.appendChild(d); area.scrollTop = area.scrollHeight; }
-        function sendText() { const msg = document.getElementById('textInput').value; if(currentUser && socket && msg) { socket.emit('radio-text', {name:currentUser.full_name, msg, channel: currentChannel, lat:0, lng:0}); document.getElementById('textInput').value=''; } }
-        function changeChannel(ch) { if (ch === 'LOUNGE' && isDispatched) return alert("ACCESS DENIED"); currentChannel = ch; if(socket) socket.emit('join-channel', ch); document.getElementById('lcdChannel').innerText = ch; document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan')); if(document.getElementById('btn'+ch)) document.getElementById('btn'+ch).classList.add('active-chan'); }
-        const pttBtn = document.getElementById('pttBtn'); pttBtn.onmousedown = pttBtn.ontouchstart = async (e) => { e.preventDefault(); try { await initMic(); if (mediaRecorder.state === 'inactive') { playSound('ptt-on'); mediaRecorder.start(); pttBtn.classList.add('transmitting'); document.getElementById('lcdStatus').innerText = "TX..."; document.getElementById('lcdStatus').style.color = "red"; } } catch(e) { console.error("PTT Fail", e); } }; pttBtn.onmouseup = pttBtn.ontouchend = (e) => { e.preventDefault(); if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); playSound('ptt-off'); pttBtn.classList.remove('transmitting'); document.getElementById('lcdStatus').innerText = "STANDBY"; document.getElementById('lcdStatus').style.color = "var(--green)"; } };
         async function createTicket() { const desc = document.getElementById('tickDesc').value; await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:null, type:'General', priority:'Normal', description:desc }) }); loadTickets(); }
         async function addClient() { const name = document.getElementById('cliName').value; await fetch('/api/clients', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, phone:'-', address:'-' }) }); loadClients(); }
         function saveConfig() { alert("Config Saved"); }
