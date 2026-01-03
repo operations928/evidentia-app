@@ -115,10 +115,18 @@
         .ts-table th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 8px; }
         .ts-table td { padding: 8px; border-bottom: 1px solid #334155; }
         
-        /* TASK TABLE COLORS */
         .task-status-open { color: #f59e0b; }
         .task-status-closed { color: #10b981; }
         .task-status-cancelled { color: #ef4444; }
+
+        /* SCHEDULER STYLES */
+        .job-card { border-left: 4px solid var(--accent); background: rgba(255,255,255,0.03); padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+        .job-card.trade { border-left-color: var(--orange); }
+        .job-card.open { border-left-color: var(--green); }
+        .job-header { display:flex; justify-content:space-between; margin-bottom:5px; }
+        .job-title { font-weight:bold; color:white; font-size:1.1rem; }
+        .job-detail { font-size:0.85rem; color:#94a3b8; margin-bottom:3px; }
+        .job-alert { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; font-size: 0.7rem; padding: 5px; margin-top: 10px; border-radius: 4px; text-align: center; }
     </style>
 </head>
 <body>
@@ -150,7 +158,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v11.0 TASKS READY</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v12.0 SCHEDULER</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -159,6 +167,7 @@
         <button class="nav-btn" onclick="showTab('timesheet')"><span>⏱️</span> Timesheet & Pay</button>
         
         <div class="nav-cat">Field Ops</div>
+        <button class="nav-btn" onclick="showTab('schedule')"><span>📅</span> Scheduled Ops</button>
         <button class="nav-btn" onclick="showTab('tasks')"><span>🚨</span> TOC Tasks</button>
         <button class="nav-btn" onclick="showTab('reports')"><span>📝</span> Report Writer</button>
         <button class="nav-btn" onclick="showTab('apps')"><span>📱</span> Apps</button>
@@ -232,43 +241,39 @@
                     </div>
                 </div>
 
-                <div id="tab-tasks" class="tab-content">
-                    <h2>TOC Tasks & Dispatch</h2>
+                <div id="tab-schedule" class="tab-content">
+                    <h2>Scheduled Operations</h2>
                     
-                    <div class="card" style="background:#1e293b; border-left: 4px solid var(--accent);">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <div style="font-size:2rem; font-weight:bold; color:white;" id="openTaskCount">0</div>
-                                <div style="font-size:0.8rem; color:#94a3b8;">OPEN INCIDENTS</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:2rem; font-weight:bold; color:var(--green);" id="closedTaskCount">0</div>
-                                <div style="font-size:0.8rem; color:#94a3b8;">CLOSED TODAY</div>
-                            </div>
-                        </div>
+                    <div class="card">
+                        <h3>My Assigned Shifts</h3>
+                        <div id="myScheduleList">Loading...</div>
                     </div>
 
+                    <div class="card" style="border-left: 4px solid var(--green);">
+                        <h3>Open Shifts (Available)</h3>
+                        <div id="openScheduleList">Loading...</div>
+                    </div>
+
+                    <div class="card" style="border-left: 4px solid var(--orange);">
+                        <h3>Shift Trade Board</h3>
+                        <div id="tradeScheduleList">Loading...</div>
+                    </div>
+                </div>
+
+                <div id="tab-tasks" class="tab-content">
+                    <h2>TOC Tasks & Dispatch</h2>
+                    <div class="card" style="background:#1e293b; border-left: 4px solid var(--accent);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div><div style="font-size:2rem; font-weight:bold; color:white;" id="openTaskCount">0</div><div style="font-size:0.8rem; color:#94a3b8;">OPEN INCIDENTS</div></div>
+                            <div style="text-align:right;"><div style="font-size:2rem; font-weight:bold; color:var(--green);" id="closedTaskCount">0</div><div style="font-size:0.8rem; color:#94a3b8;">CLOSED TODAY</div></div>
+                        </div>
+                    </div>
                     <div class="card">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                             <h3>Dispatch Log</h3>
                             <button class="btn btn-blue" style="font-size:0.7rem; padding:5px 10px;" onclick="loadTasks()">REFRESH</button>
                         </div>
-                        <div style="overflow-x:auto;">
-                            <table class="ts-table">
-                                <thead>
-                                    <tr>
-                                        <th>Status</th>
-                                        <th>Type</th>
-                                        <th>Location</th>
-                                        <th>Assigned</th>
-                                        <th>Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="taskListBody">
-                                    <tr><td colspan="5" style="text-align:center;">Loading tasks...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
+                        <div style="overflow-x:auto;"><table class="ts-table"><thead><tr><th>Status</th><th>Type</th><th>Location</th><th>Assigned</th><th>Time</th></tr></thead><tbody id="taskListBody"><tr><td colspan="5" style="text-align:center;">Loading tasks...</td></tr></tbody></table></div>
                     </div>
                 </div>
 
@@ -405,42 +410,86 @@
                     }
                 }
                 
-                loadStaff(); loadTickets(); loadClients(); loadCourses(); loadRadioHistory(); loadStats(profile.full_name); loadTimesheetData(); loadTasks();
+                loadStaff(); loadTickets(); loadClients(); loadCourses(); loadRadioHistory(); loadStats(profile.full_name); loadTimesheetData(); loadTasks(); loadSchedule();
             }
         }
 
-        // --- TASKS LOGIC (NEW) ---
+        // --- SCHEDULER LOGIC (NEW) ---
+        async function loadSchedule() {
+            const { data } = await sb.from('schedule_shifts').select('*').order('start_time', { ascending: true });
+            
+            const myDiv = document.getElementById('myScheduleList');
+            const openDiv = document.getElementById('openScheduleList');
+            const tradeDiv = document.getElementById('tradeScheduleList');
+            
+            myDiv.innerHTML = ''; openDiv.innerHTML = ''; tradeDiv.innerHTML = '';
+            
+            let hasMy = false; let hasOpen = false; let hasTrade = false;
+
+            if(data) {
+                data.forEach(s => {
+                    const html = `
+                        <div class="job-card ${s.status === 'Open' ? 'open' : (s.is_trade_requested ? 'trade' : '')}">
+                            <div class="job-header">
+                                <div class="job-title">${s.job_title}</div>
+                                <div style="font-size:0.8rem;">${new Date(s.start_time).toLocaleDateString()}</div>
+                            </div>
+                            <div class="job-detail">📍 ${s.location} (${s.client_name})</div>
+                            <div class="job-detail">⏰ ${new Date(s.start_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} - ${new Date(s.end_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                            <div class="job-detail">👤 POC: ${s.poc_info || 'N/A'}</div>
+                            <div class="job-detail">📝 Orders: ${s.post_orders || 'Standard'}</div>
+                            <div class="job-detail">📋 Reports: ${s.req_reports || 'Incident, Daily'}</div>
+                            
+                            ${s.assigned_to === currentUser.full_name ? 
+                                `<button class="btn btn-red" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="requestReassignment('${s.id}')">Request Reassignment</button>
+                                 <div class="job-alert">⚠ 48hr Notice Required. No Guarantee.</div>` 
+                            : ''}
+                            
+                            ${s.status === 'Open' ? `<button class="btn btn-green" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="claimShift('${s.id}')">Claim Shift</button>` : ''}
+                            
+                            ${s.is_trade_requested && s.assigned_to !== currentUser.full_name ? `<button class="btn btn-blue" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="claimShift('${s.id}')">Accept Trade</button>` : ''}
+                        </div>
+                    `;
+
+                    if(s.assigned_to === currentUser.full_name) { myDiv.innerHTML += html; hasMy = true; }
+                    else if(s.status === 'Open') { openDiv.innerHTML += html; hasOpen = true; }
+                    else if(s.is_trade_requested) { tradeDiv.innerHTML += html; hasTrade = true; }
+                });
+            }
+
+            if(!hasMy) myDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No assigned shifts.</div>';
+            if(!hasOpen) openDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No open shifts.</div>';
+            if(!hasTrade) tradeDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No trades posted.</div>';
+        }
+
+        async function requestReassignment(id) {
+            if(!confirm("Warning: Requesting reassignment does not guarantee approval. You are responsible for this shift until notified otherwise. Proceed?")) return;
+            await sb.from('schedule_shifts').update({ is_trade_requested: true }).eq('id', id);
+            alert("Request Submitted.");
+            loadSchedule();
+        }
+
+        async function claimShift(id) {
+            if(!confirm("Confirm shift acceptance?")) return;
+            await sb.from('schedule_shifts').update({ status: 'Assigned', assigned_to: currentUser.full_name, is_trade_requested: false }).eq('id', id);
+            alert("Shift Assigned to You.");
+            loadSchedule();
+        }
+
+        // --- TASKS LOGIC ---
         async function loadTasks() {
             const { data } = await sb.from('tickets').select('*').order('created_at', { ascending: false });
-            
-            let openCount = 0;
-            let closedCount = 0;
-            const tbody = document.getElementById('taskListBody');
-            tbody.innerHTML = '';
-
+            let openCount = 0; let closedCount = 0;
+            const tbody = document.getElementById('taskListBody'); tbody.innerHTML = '';
             if(data && data.length > 0) {
                 data.forEach(t => {
-                    // Update Counters
-                    if(t.status === 'Open') openCount++;
-                    if(t.status === 'Closed') closedCount++; // Ideally filter by date for "Closed Today"
-
+                    if(t.status === 'Open') openCount++; if(t.status === 'Closed') closedCount++;
                     let statusClass = 'task-status-open';
                     if(t.status === 'Closed') statusClass = 'task-status-closed';
                     if(t.status === 'Canceled') statusClass = 'task-status-cancelled';
-
-                    const row = `<tr>
-                        <td class="${statusClass}"><b>${t.status || 'Open'}</b></td>
-                        <td>${t.type || 'General'}</td>
-                        <td>${t.location || 'Unknown'}</td>
-                        <td>${t.assigned_to || 'Unassigned'}</td>
-                        <td>${new Date(t.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
-                    </tr>`;
-                    tbody.innerHTML += row;
+                    tbody.innerHTML += `<tr><td class="${statusClass}"><b>${t.status || 'Open'}</b></td><td>${t.type || 'General'}</td><td>${t.location || 'Unknown'}</td><td>${t.assigned_to || 'Unassigned'}</td><td>${new Date(t.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td></tr>`;
                 });
-            } else {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No dispatch calls found.</td></tr>';
-            }
-
+            } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No dispatch calls found.</td></tr>';
             document.getElementById('openTaskCount').innerText = openCount;
             document.getElementById('closedTaskCount').innerText = closedCount;
         }
@@ -509,7 +558,7 @@
         async function submitReport() { const nar = document.getElementById('repNar').value; await fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ officer_name:currentUser.full_name, type:'General', location:'HQ', narrative:nar }) }); alert("Report Submitted"); loadStats(currentUser.full_name); }
         function saveConfig() { alert("Config Saved"); }
         const map = L.map('map').setView([0,0], 2); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
-        function showTab(id) { document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab')); document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active')); document.getElementById('tab-'+id).classList.add('active-tab'); event.currentTarget.classList.add('active'); if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open'); if(id === 'staff') loadStaff(); if(id === 'tickets') loadTickets(); if(id === 'clients') loadClients(); if(id === 'tasks') loadTasks(); }
+        function showTab(id) { document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab')); document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active')); document.getElementById('tab-'+id).classList.add('active-tab'); event.currentTarget.classList.add('active'); if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open'); if(id === 'staff') loadStaff(); if(id === 'tickets') loadTickets(); if(id === 'clients') loadClients(); if(id === 'tasks') loadTasks(); if(id === 'schedule') loadSchedule(); }
     </script>
 </body>
 </html>
