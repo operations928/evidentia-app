@@ -23,7 +23,7 @@
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let myMarker = null; 
         let myAccuracy = null;
-        let reportConfig = null; // Store report types
+        let reportConfig = null;
 
         // INIT
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
@@ -105,7 +105,6 @@
         .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
         .app-icon { background: var(--panel); border: 1px solid #334155; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; text-decoration: none; color: white; display: block; font-size: 2rem; }
         .app-icon span { display: block; font-size: 0.8rem; margin-top: 5px; color: #ccc; }
-        
         .doc-upload-box { border: 2px dashed #475569; padding: 15px; text-align: center; margin-bottom: 10px; border-radius: 6px; cursor: pointer; position: relative; }
         .doc-upload-box:hover { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); }
         .doc-label { font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 5px; display: block; text-align: left; }
@@ -127,12 +126,14 @@
         .job-detail { font-size:0.85rem; color:#94a3b8; margin-bottom:3px; }
         .job-alert { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; font-size: 0.7rem; padding: 5px; margin-top: 10px; border-radius: 4px; text-align: center; }
 
-        /* REPORTS */
         .rep-status-pending { color: #f59e0b; }
         .rep-status-approved { color: #10b981; }
         .rep-status-rejected { color: #ef4444; }
         .rep-item { padding: 15px; border-bottom: 1px solid #334155; cursor: pointer; transition: 0.2s; }
         .rep-item:hover { background: rgba(255,255,255,0.05); }
+        .file-list { margin-top: 10px; font-size: 0.8rem; color: #ccc; }
+        .file-link { color: var(--accent); text-decoration: none; margin-right: 10px; }
+        .file-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -164,7 +165,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v13.0 REPORTS</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v14.0 UPLOADS READY</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -244,6 +245,54 @@
                             <div class="stat-box"><div style="font-size:0.8rem; color:#94a3b8;">HOURS</div><div id="statHours" style="font-size:1.5rem; font-weight:bold;">0.0</div></div>
                         </div>
                         <button class="btn btn-red" style="width:100%;" onclick="clockOut()">END SHIFT (Clock Out)</button>
+                    </div>
+                </div>
+
+                <div id="tab-reports" class="tab-content">
+                    <h2>Report Writer</h2>
+                    
+                    <div class="card">
+                        <h3>New Report</h3>
+                        <div class="grid-2">
+                            <div>
+                                <label class="doc-label">Category</label>
+                                <select id="repCategory" class="form-input" onchange="updateReportTypes()">
+                                    <option value="toc">TOC Task Report</option>
+                                    <option value="internal">Internal Report</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="doc-label">Report Type</label>
+                                <select id="repType" class="form-input"></select>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top:10px;">
+                            <label class="doc-label">Location / Asset ID</label>
+                            <input type="text" id="repLocation" class="form-input" placeholder="e.g. 123 Main St OR Vehicle #404">
+                        </div>
+
+                        <div style="margin-top:10px;">
+                            <label class="doc-label">Narrative / Details</label>
+                            <textarea id="repNar" class="form-input" rows="6" placeholder="Describe the incident, inspection, or task details..."></textarea>
+                        </div>
+
+                        <div style="margin-top:15px; border-top:1px solid #334155; padding-top:10px;">
+                            <label class="doc-label">📎 Attachments (Photos, Video, Audio, Docs)</label>
+                            <label class="doc-upload-box">
+                                <span style="font-size:1.5rem;">📂</span>
+                                <span>Click to Select Files</span>
+                                <input type="file" id="repFiles" multiple style="display:none;" onchange="updateFileCount()">
+                            </label>
+                            <div id="fileCountMsg" style="font-size:0.8rem; color:#94a3b8; text-align:center;">No files selected</div>
+                        </div>
+
+                        <button class="btn btn-blue" style="width:100%; margin-top:10px;" id="btnSubmitRep" onclick="submitReport()">SUBMIT FOR APPROVAL</button>
+                    </div>
+
+                    <div class="card">
+                        <h3>Report History (Status)</h3>
+                        <div id="reportHistoryList">Loading...</div>
                     </div>
                 </div>
 
@@ -334,44 +383,6 @@
                     </div>
                 </div>
 
-                <div id="tab-reports" class="tab-content">
-                    <h2>Report Writer</h2>
-                    
-                    <div class="card">
-                        <h3>New Report</h3>
-                        <div class="grid-2">
-                            <div>
-                                <label class="doc-label">Category</label>
-                                <select id="repCategory" class="form-input" onchange="updateReportTypes()">
-                                    <option value="toc">TOC Task Report</option>
-                                    <option value="internal">Internal Report</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="doc-label">Report Type</label>
-                                <select id="repType" class="form-input"></select>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top:10px;">
-                            <label class="doc-label">Location / Asset ID</label>
-                            <input type="text" id="repLocation" class="form-input" placeholder="e.g. 123 Main St OR Vehicle #404">
-                        </div>
-
-                        <div style="margin-top:10px;">
-                            <label class="doc-label">Narrative / Details</label>
-                            <textarea id="repNar" class="form-input" rows="6" placeholder="Describe the incident, inspection, or task details..."></textarea>
-                        </div>
-
-                        <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="submitReport()">SUBMIT FOR APPROVAL</button>
-                    </div>
-
-                    <div class="card">
-                        <h3>Report History (Status)</h3>
-                        <div id="reportHistoryList">Loading...</div>
-                    </div>
-                </div>
-
                 <div id="tab-tickets" class="tab-content"><h2>Tickets</h2><div class="card"><input type="text" id="tickDesc" class="form-input" placeholder="Ticket Description"><button class="btn btn-green" onclick="createTicket()">Create Ticket</button></div><div class="card"><div id="ticketList">Loading...</div></div></div>
                 <div id="tab-clients" class="tab-content"><h2>Clients</h2><div class="card"><input type="text" id="cliName" class="form-input" placeholder="Client Name"><button class="btn btn-blue" onclick="addClient()">Add Client</button></div><div class="card"><div id="clientList">Loading...</div></div></div>
                 <div id="tab-staff" class="tab-content"><h2>Staff</h2><div class="card"><div id="staffList">Loading...</div></div></div>
@@ -445,19 +456,15 @@
             }
         }
 
-        // --- NEW REPORT SYSTEM ---
+        // --- REPORT SYSTEM ---
         async function loadReportConfig() {
-            // Fetch config from DB
             let { data } = await sb.from('app_config').select('value').eq('key', 'report_config').single();
             if(!data) {
-                // Fallback defaults if DB empty
                 reportConfig = {
-                    toc: ["ATM Escort", "Alarm Response Banks", "Patrol / Inspection", "Incident Report", "Other"],
-                    internal: ["Vehicle Maintenance", "Gear Inspection", "Other"]
+                    toc: ["ATM Escort", "Alarm Response", "Patrol", "Incident", "Other"],
+                    internal: ["Vehicle Check", "Gear Check", "Other"]
                 };
-            } else {
-                reportConfig = data.value;
-            }
+            } else { reportConfig = data.value; }
             updateReportTypes();
         }
 
@@ -465,102 +472,97 @@
             const cat = document.getElementById('repCategory').value;
             const sel = document.getElementById('repType');
             sel.innerHTML = '';
-            
-            // Add Role-Based Defaults
             if(currentUser && (currentUser.role === 'Dispatch' || currentUser.role === 'Command')) {
-                const opt = document.createElement('option');
-                opt.value = "Dispatch Report";
-                opt.innerText = "*** DISPATCH REPORT ***";
-                sel.appendChild(opt);
+                const opt = document.createElement('option'); opt.value = "Dispatch Report"; opt.innerText = "*** DISPATCH REPORT ***"; sel.appendChild(opt);
             }
             if(currentUser && currentUser.role === 'Command') {
-                const opt = document.createElement('option');
-                opt.value = "Command Report";
-                opt.innerText = "*** COMMAND REPORT ***";
-                sel.appendChild(opt);
+                const opt = document.createElement('option'); opt.value = "Command Report"; opt.innerText = "*** COMMAND REPORT ***"; sel.appendChild(opt);
             }
-
-            // Populate from Config
             if(reportConfig && reportConfig[cat]) {
                 reportConfig[cat].forEach(type => {
-                    const opt = document.createElement('option');
-                    opt.value = type;
-                    opt.innerText = type;
-                    sel.appendChild(opt);
+                    const opt = document.createElement('option'); opt.value = type; opt.innerText = type; sel.appendChild(opt);
                 });
             }
         }
 
+        function updateFileCount() {
+            const input = document.getElementById('repFiles');
+            const count = input.files.length;
+            document.getElementById('fileCountMsg').innerText = count > 0 ? `✅ ${count} file(s) selected` : "No files selected";
+        }
+
         async function submitReport() {
+            const btn = document.getElementById('btnSubmitRep');
+            btn.innerText = "UPLOADING..."; btn.disabled = true;
+
             const cat = document.getElementById('repCategory').value;
             const type = document.getElementById('repType').value;
             const loc = document.getElementById('repLocation').value;
             const nar = document.getElementById('repNar').value;
+            const fileInput = document.getElementById('repFiles');
 
-            if(!nar) return alert("Please enter a narrative.");
+            if(!nar) { alert("Please enter narrative."); btn.innerText = "SUBMIT"; btn.disabled = false; return; }
 
+            // 1. Upload Files
+            let attachmentUrls = [];
+            if(fileInput.files.length > 0) {
+                for(let i=0; i<fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
+                    const { data, error } = await sb.storage.from('report_files').upload(fileName, file);
+                    if(!error) {
+                        const { data: publicData } = sb.storage.from('report_files').getPublicUrl(fileName);
+                        attachmentUrls.push(publicData.publicUrl);
+                    } else {
+                        console.error("Upload error", error);
+                    }
+                }
+            }
+
+            // 2. Submit Report
             await sb.from('field_reports').insert([{ 
                 officer_name: currentUser.full_name, 
                 category: cat,
                 incident_type: type, 
                 location: loc, 
                 narrative: nar,
-                status: 'Pending'
+                status: 'Pending',
+                attachments: attachmentUrls // Save array of URLs
             }]);
             
-            alert("Report Submitted for Approval.");
+            alert("Report Submitted.");
             document.getElementById('repNar').value = "";
-            loadReportHistory();
-            loadStats(currentUser.full_name);
+            document.getElementById('repFiles').value = "";
+            updateFileCount();
+            btn.innerText = "SUBMIT FOR APPROVAL"; btn.disabled = false;
+            loadReportHistory(); loadStats(currentUser.full_name);
         }
 
         async function loadReportHistory() {
-            // If Command, load ALL pending. If Officer, load MY reports.
             let query = sb.from('field_reports').select('*').order('created_at', { ascending: false });
-            
-            if(currentUser.role !== 'Command' && currentUser.role !== 'Dispatch') {
-                query = query.eq('officer_name', currentUser.full_name);
-            }
-
+            if(currentUser.role !== 'Command' && currentUser.role !== 'Dispatch') query = query.eq('officer_name', currentUser.full_name);
             const { data } = await query;
             const div = document.getElementById('reportHistoryList');
             div.innerHTML = '';
-
             if(data && data.length > 0) {
                 data.forEach(r => {
                     let stClass = 'rep-status-pending';
                     if(r.status === 'Approved') stClass = 'rep-status-approved';
                     if(r.status === 'Rejected') stClass = 'rep-status-rejected';
+                    
+                    let attachHtml = '';
+                    if(r.attachments && r.attachments.length > 0) {
+                        attachHtml = '<div class="file-list">Attachments: ';
+                        r.attachments.forEach((url, idx) => {
+                            attachHtml += `<a href="${url}" target="_blank" class="file-link">File ${idx+1}</a>`;
+                        });
+                        attachHtml += '</div>';
+                    }
 
-                    const html = `
-                        <div class="rep-item" onclick="viewReport('${r.id}')">
-                            <div style="display:flex; justify-content:space-between;">
-                                <div style="font-weight:bold;">${r.incident_type}</div>
-                                <div class="${stClass}">${r.status}</div>
-                            </div>
-                            <div style="font-size:0.8rem; color:#94a3b8;">${new Date(r.created_at).toLocaleString()} | ${r.location || 'No Loc'}</div>
-                            <div style="font-size:0.8rem; color:#ccc; margin-top:5px;">${r.narrative.substring(0, 50)}...</div>
-                            ${r.admin_notes ? `<div style="font-size:0.7rem; color:${stClass}; margin-top:5px;">Note: ${r.admin_notes}</div>` : ''}
-                        </div>
-                    `;
+                    const html = `<div class="rep-item"><div style="display:flex; justify-content:space-between;"><div style="font-weight:bold;">${r.incident_type}</div><div class="${stClass}">${r.status}</div></div><div style="font-size:0.8rem; color:#94a3b8;">${new Date(r.created_at).toLocaleString()} | ${r.location || 'No Loc'}</div><div style="font-size:0.8rem; color:#ccc; margin-top:5px;">${r.narrative.substring(0, 50)}...</div>${attachHtml}${r.admin_notes ? `<div style="font-size:0.7rem; color:${stClass}; margin-top:5px;">Note: ${r.admin_notes}</div>` : ''}</div>`;
                     div.innerHTML += html;
                 });
-            } else {
-                div.innerHTML = '<div style="padding:15px; color:#64748b;">No reports found.</div>';
-            }
-        }
-
-        async function viewReport(id) {
-            // Simplified View/Approve flow for prototype (Command can alert approval)
-            if(currentUser.role === 'Command' || currentUser.role === 'Dispatch') {
-                const note = prompt("Admin Note (Leave empty to just approve):");
-                if(note !== null) {
-                    await sb.from('field_reports').update({ status: 'Approved', admin_notes: note }).eq('id', id);
-                    loadReportHistory();
-                }
-            } else {
-                alert("Only Command can modify status.");
-            }
+            } else div.innerHTML = '<div style="padding:15px; color:#64748b;">No reports found.</div>';
         }
 
         // --- EXISTING LOGIC ---
