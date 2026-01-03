@@ -29,23 +29,17 @@
         let myMarker = null; 
         let myAccuracy = null;
         let myPathLine = null; 
-        let pathCoords = [];   
+        let pathCoords = []; 
         let geofenceLayers = []; 
 
         let reportConfig = null;
         let isMuted = false;
 
-        // --- INIT SUPABASE ---
+        // --- INIT ---
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
-        try { 
-            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
-            console.log("Supabase Client Init Success");
-        } catch (e) { 
-            console.error("Init Error:", e); 
-            alert("CRITICAL ERROR: Could not connect to Database. Check your ad-blocker or internet.");
-        }
+        try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.error("Init Error:", e); }
 
         // --- AUTH ---
         function toggleAuth(mode) {
@@ -54,31 +48,10 @@
         }
 
         async function handleLogin() {
-            if (!sb) return alert("System Error: Database not connected. Reload page.");
-            
-            const btn = document.getElementById('btnLoginBtn');
-            const originalText = btn.innerText;
-            btn.innerText = "AUTHENTICATING...";
-            btn.disabled = true;
-
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-
-            try {
-                const { error } = await sb.auth.signInWithPassword({ email, password });
-                if(error) {
-                    alert("Login Failed: " + error.message);
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                } else {
-                    // Success - listener will handle UI switch
-                    console.log("Login successful");
-                }
-            } catch (e) {
-                alert("Login Error: " + e.message);
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
+            const { error } = await sb.auth.signInWithPassword({ email, password });
+            if(error) alert("Login Failed: " + error.message);
         }
 
         async function handleSignup() {
@@ -86,7 +59,7 @@
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) alert(error.message); else alert("Application Submitted. You may log in.");
+            if(error) alert(error.message); else alert("Applied.");
         }
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
@@ -100,7 +73,7 @@
                 if(confirm("Start Shift?")) {
                     await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'in', officer_name: currentUser.full_name, role: currentUser.role }) });
                     isClockedIn = true;
-                    isIdle = false;
+                    isIdle = false; // Default to Active
                     updateAccessLevel();
                     await sb.from('profiles').update({ current_status: 'Active', last_active: new Date() }).eq('id', currentUser.id);
                 }
@@ -122,7 +95,7 @@
             isIdle = !isIdle;
             const status = isIdle ? 'Idle' : 'Active';
             
-            // Toggle UI
+            // UI Update
             const btn = document.getElementById('btnIdle');
             if(isIdle) {
                 btn.innerText = "RESUME DUTY (Go Active)";
@@ -134,8 +107,9 @@
                 document.getElementById('idleWarning').style.display = "none";
             }
             
+            // DB Update
             await sb.from('profiles').update({ current_status: status }).eq('id', currentUser.id);
-            updateAccessLevel();
+            updateAccessLevel(); 
         }
 
         function updateAccessLevel() {
@@ -148,7 +122,7 @@
             if(isClockedIn) {
                 btnClock.innerText = "END SHIFT (Clock Out)";
                 btnClock.className = "btn btn-red";
-                btnIdle.style.display = "block"; 
+                btnIdle.style.display = "block"; // Show Idle button
                 
                 if(isIdle) {
                     statusDiv.innerHTML = 'Status: <span style="color:var(--orange)">IDLE (PAUSED)</span>';
@@ -163,7 +137,7 @@
             } else {
                 btnClock.innerText = "START SHIFT (Clock In)";
                 btnClock.className = "btn btn-green";
-                btnIdle.style.display = "none"; 
+                btnIdle.style.display = "none"; // Hide Idle button
                 
                 statusDiv.innerHTML = 'Status: <span style="color:gray">OFF DUTY</span>';
                 opsMsg.style.display = 'block';
@@ -189,15 +163,14 @@
         /* RADIO UI */
         .radio-silo { width: 360px; background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-left: 4px solid #333; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.5); padding: 10px; }
         .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; box-shadow: inset 0 0 20px #000; display: flex; flex-direction: column; height: 100%; }
-        .radio-screen-container { background: #000; padding: 5px; border-radius: 8px; border: 1px solid #555; margin-bottom: 10px; box-shadow: inset 0 0 10px #000; }
-        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; transition: all 0.2s; }
+        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; border: 1px solid #555; }
         .radio-header { border-bottom: 2px dashed #550f0f; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         .chat-log { flex: 1; overflow-y: auto; font-size: 0.8rem; }
         .control-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px solid #333; }
         .knob-btn { width: 100%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #444, #111); border: 2px solid #555; color: #aaa; font-size: 0.7rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; flex-direction: column; transition: 0.1s; }
         .knob-btn:active { transform: scale(0.95); border-color: var(--radio-color); color: var(--radio-color); }
-        .tactical-ptt { width:100%; height:60px; background: repeating-linear-gradient(45deg, #222, #222 10px, #1a1a1a 10px, #1a1a1a 20px); border: 2px solid #555; border-radius: 8px; color: #ccc; cursor: pointer; font-weight: bold; text-shadow: 0 1px 2px black; }
-        .tactical-ptt:active, .tactical-ptt.transmitting { background: var(--radio-color); color: black; box-shadow: 0 0 20px var(--radio-color); border-color: white; }
+        .tactical-ptt { width:100%; height:60px; background: repeating-linear-gradient(45deg, #222, #222 10px, #1a1a1a 10px, #1a1a1a 20px); border: 2px solid #555; border-radius: 8px; color: #ccc; cursor: pointer; font-weight: bold; }
+        .tactical-ptt:active, .tactical-ptt.transmitting { background: var(--radio-color); color: black; box-shadow: 0 0 20px var(--radio-color); }
 
         @media (max-width: 768px) {
             .sidebar { position: fixed; height: 100%; transform: translateX(-100%); }
@@ -265,7 +238,7 @@
             <form onsubmit="event.preventDefault(); handleLogin();">
                 <input type="email" id="email" placeholder="Email" class="form-input" autocomplete="email">
                 <input type="password" id="password" placeholder="Password" class="form-input" autocomplete="current-password">
-                <button type="submit" id="btnLoginBtn" class="btn btn-blue" style="width:100%;">AUTHENTICATE</button>
+                <button type="submit" class="btn btn-blue" style="width:100%;">AUTHENTICATE</button>
             </form>
             <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('signup')">New Recruit? Apply Here</p>
         </div>
@@ -286,7 +259,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v24.1 FINAL FIX</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v25.0 FULL STACK</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -451,7 +424,7 @@
                 <div id="tab-tickets" class="tab-content"><h2>Tickets</h2><div class="card"><input type="text" id="tickDesc" class="form-input" placeholder="Ticket Description"><button class="btn btn-green" onclick="createTicket()">Create Ticket</button></div><div class="card"><div id="ticketList">Loading...</div></div></div>
                 <div id="tab-clients" class="tab-content"><h2>Clients</h2><div class="card"><input type="text" id="cliName" class="form-input" placeholder="Client Name"><button class="btn btn-blue" onclick="addClient()">Add Client</button></div><div class="card"><div id="clientList">Loading...</div></div></div>
                 <div id="tab-admin" class="tab-content"><h2>Config</h2><div class="card"><button class="btn btn-blue" onclick="saveConfig()">Update Config</button></div></div>
-                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="app-grid"><a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a><a href="https://map.navdrone.ca" target="_blank" class="app-icon">🚁<span>NavDrone</span></a><a href="https://app.connecteam.com" target="_blank" class="app-icon">📱<span>Connecteam</span></a><a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a></div></div>
+                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="app-grid"><a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a><a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a></div></div>
                 <div id="tab-training" class="tab-content"><h2>Academy</h2><div class="card" id="courseList">Loading courses...</div></div>
             </div>
         </div>
@@ -596,6 +569,13 @@
                 data.forEach(fence => {
                     const d = map.distance([lat, lng], [fence.lat, fence.lng]);
                     // Logic to alert if inside zone can go here
+                    if (d < fence.radius) {
+                         // Alert logic here (e.g. show a toast notification)
+                         const alertMsg = `Entered Zone: ${fence.name}`;
+                         // Simple visual feedback for now:
+                         document.getElementById('gpsIndicator').innerText = alertMsg;
+                         document.getElementById('gpsIndicator').style.color = "orange";
+                    }
                 });
             }
         }
