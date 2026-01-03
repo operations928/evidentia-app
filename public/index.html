@@ -217,4 +217,487 @@
         .tab-content.active-tab { display: block; }
         .card { background: var(--panel); padding: 20px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 15px; }
         .form-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; margin-bottom: 10px; }
-        .form-input:disabled { background: #334155; color: #
+        .form-input:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; border: 1px solid #475569; }
+        .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
+        .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); }
+        .btn-orange { background: var(--orange); color: black; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
+        
+        .stat-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; text-align: center; }
+        .stat-val { font-size: 1.2rem; font-weight: bold; color: white; }
+        .stat-lbl { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; }
+        .chat-msg { padding: 2px 0; border-bottom: 1px solid rgba(255,69,0,0.2); font-size: 0.8rem; }
+        
+        .menu-toggle { display: none; position: absolute; top: 10px; left: 10px; z-index: 1000; background: var(--panel); border: 1px solid #334155; padding: 8px; border-radius: 4px; color: white; cursor: pointer; }
+        
+        .chan-btn { flex: 1; min-width: 40px; background:#333; border:1px solid #555; color:#aaa; padding:4px; cursor:pointer; font-weight:bold; font-size:0.6rem; white-space: nowrap; }
+        .active-chan { background: var(--green); color:black; border-color:var(--green); box-shadow:0 0 10px var(--green); }
+        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .dot-green { background-color: #10b981; } .dot-gray { background-color: #64748b; } .dot-orange { background-color: #f59e0b; }
+        
+        /* COMMAND TOOLS */
+        .cmd-panel { background: #200; border-top: 1px solid #500; padding: 5px; display: none; text-align: center; margin-top: 5px; }
+        .cmd-btn { background: #600; border: 1px solid #800; color: #fab; padding: 2px 6px; font-size: 0.6rem; cursor: pointer; margin: 1px; }
+        
+        /* SCHEDULER & DOCS */
+        .job-card { border-left: 4px solid var(--accent); background: rgba(255,255,255,0.03); padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+        .job-card.trade { border-left-color: var(--orange); } .job-card.open { border-left-color: var(--green); }
+        .doc-upload-box { border: 2px dashed #475569; padding: 15px; text-align: center; margin-bottom: 10px; border-radius: 6px; cursor: pointer; position: relative; }
+        .doc-label { font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 5px; display: block; text-align: left; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .ts-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .ts-table th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 8px; }
+        .ts-table td { padding: 8px; border-bottom: 1px solid #334155; }
+        
+        .rep-item { padding: 15px; border-bottom: 1px solid #334155; cursor: pointer; transition: 0.2s; }
+        .rep-item:hover { background: rgba(255,255,255,0.05); }
+        .file-list { margin-top: 10px; font-size: 0.8rem; color: #ccc; }
+        .file-link { color: var(--accent); text-decoration: none; margin-right: 10px; }
+        .file-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="modal-overlay" id="authModal">
+        <div class="auth-card" id="loginForm">
+            <h2 style="color:var(--accent);">TOC LOGIN</h2>
+            <form onsubmit="event.preventDefault(); handleLogin();">
+                <input type="email" id="email" placeholder="Email" class="form-input" autocomplete="email">
+                <input type="password" id="password" placeholder="Password" class="form-input" autocomplete="current-password">
+                <button type="submit" id="btnLoginBtn" class="btn btn-blue" style="width:100%;">AUTHENTICATE</button>
+            </form>
+            <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('signup')">New Recruit? Apply Here</p>
+        </div>
+        <div class="auth-card" id="signupForm" style="display:none;">
+            <h2 style="color:var(--green);">RECRUIT APPLICATION</h2>
+            <form onsubmit="event.preventDefault(); handleSignup();">
+                <input type="text" id="regName" placeholder="Full Name" class="form-input">
+                <input type="email" id="regEmail" placeholder="Email" class="form-input" autocomplete="email">
+                <input type="password" id="regPass" placeholder="Password" class="form-input" autocomplete="new-password">
+                <button type="submit" class="btn btn-green" style="width:100%;">SUBMIT</button>
+            </form>
+            <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('login')">Back to Login</p>
+        </div>
+    </div>
+
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ MENU</button>
+
+    <div class="sidebar">
+        <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
+            <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v24.1 FINAL FIX</div>
+        </div>
+        
+        <div class="nav-cat">My Station</div>
+        <button class="nav-btn active" onclick="showTab('dashboard')"><span>📊</span> Dashboard</button>
+        <button class="nav-btn" onclick="showTab('profile')"><span>🪪</span> Personnel File</button>
+        <button class="nav-btn" onclick="showTab('team')"><span>👥</span> My Team (Org)</button>
+        <button class="nav-btn" onclick="showTab('setup')"><span>🎨</span> Personal Setup</button>
+        <button class="nav-btn" onclick="showTab('timesheet')"><span>⏱️</span> Timesheet</button>
+        <button class="nav-btn" onclick="showTab('apps')"><span>📱</span> Apps</button>
+        <button class="nav-btn" onclick="showTab('training')"><span>🎓</span> Academy</button>
+        
+        <div id="fieldOpsNav" style="transition:0.3s;">
+            <div class="nav-cat">Field Ops</div>
+            <button class="nav-btn" onclick="showTab('schedule')"><span>📅</span> Scheduled Ops</button>
+            <button class="nav-btn" onclick="showTab('tasks')"><span>🚨</span> TOC Tasks</button>
+            <button class="nav-btn" onclick="showTab('reports')"><span>📝</span> Report Writer</button>
+        </div>
+        
+        <div id="commandLinks" style="display:none;">
+            <div class="nav-cat">Command</div>
+            <button class="nav-btn" onclick="showTab('tickets')"><span>🎫</span> Tickets</button>
+            <button class="nav-btn" onclick="showTab('clients')"><span>🤝</span> Clients</button>
+            <button class="nav-btn" onclick="showTab('staff')"><span>👥</span> Staff List</button>
+            <button class="nav-btn" onclick="showTab('admin')"><span>⚙️</span> Config</button>
+        </div>
+        
+        <div style="margin-top:auto; padding:15px; border-top:1px solid #334155;">
+            <button class="btn btn-red" style="width:100%; font-size:0.8rem;" onclick="doLogout()">LOGOUT</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="top-deck">
+            <div id="map"></div>
+
+            <div class="radio-silo">
+                <div class="radio-casing">
+                    <div class="radio-screen-container">
+                        <div id="radioScreen" class="radio-screen">
+                            <div class="radio-header"><span id="lcdChannel" style="font-weight:bold; font-size:1.2rem;">MAIN</span><span id="lcdStatus" style="font-size:0.8rem;">STANDBY</span></div>
+                            <div class="chat-log" id="chatArea"></div>
+                        </div>
+                    </div>
+                    <div class="cmd-panel" id="cmdRadioTools">
+                        <button class="cmd-btn" onclick="clearChatter()">CLEAR SCREEN</button>
+                        <button class="cmd-btn" onclick="exportRadioLogs()">EXPORT LOGS</button>
+                        <button class="cmd-btn" onclick="addChannel()">+ CHANNEL</button>
+                    </div>
+                    <div class="control-deck">
+                        <button class="knob-btn" onclick="volUp()">🔊<br>+</button><button class="knob-btn" onclick="volDown()">🔉<br>-</button>
+                        <button class="knob-btn" onclick="toggleMute()" id="btnMute">🔇<br>MUTE</button><button class="knob-btn" onclick="configPtt()">🎧<br>SET PTT</button>
+                    </div>
+                    <div class="slider-group" style="display:flex;gap:5px;font-size:0.7rem;color:#888;">
+                        <span>BRT</span> <input type="range" min="50" max="150" value="100" style="flex:1;" oninput="adjustScreen('brightness', this.value)">
+                        <span>CNT</span> <input type="range" min="50" max="150" value="100" style="flex:1;" oninput="adjustScreen('contrast', this.value)">
+                    </div>
+                    <button id="pttBtn" class="tactical-ptt">🎙️ PTT (HOLD)</button>
+                    <div style="margin-top:5px; text-align:center;">
+                        <button onclick="initMic()" id="audioUnlockBtn" style="background:transparent; border:1px solid #555; color:var(--radio-color); font-size:0.6rem; padding:2px; cursor:pointer; width:100%;">⚠️ CLICK TO CONNECT AUDIO</button>
+                    </div>
+                    <div style="display:flex; gap:5px; margin-top:10px;">
+                        <input type="text" id="textInput" style="background:#000; color:var(--radio-color); border:1px solid #444; padding:5px; flex:1; font-family:'Courier New';" placeholder="TXT...">
+                        <button onclick="sendText()" style="background:#444; color:#fff; border:none; padding:0 10px; cursor:pointer;">SEND</button>
+                    </div>
+                    <div id="channelList" style="display:flex; gap:2px; margin-top:5px; overflow-x:auto;">
+                        <button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>
+                        <button onclick="changeChannel('TAC-1')" class="chan-btn" id="btnTAC-1">TAC-1</button>
+                        <button onclick="changeChannel('TAC-2')" class="chan-btn" id="btnTAC-2">TAC-2</button>
+                        <button onclick="changeChannel('LOUNGE')" class="chan-btn" id="btnLOUNGE">LOUNGE</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-deck">
+            <div class="workspace">
+                
+                <div id="opsRestrictedMsg" style="display:none; background:#ef4444; color:white; text-align:center; padding:10px; font-weight:bold;">
+                    ⚠️ OFF DUTY MODE: FIELD OPS LOCKED. RADIO RESTRICTED.
+                </div>
+
+                <div id="tab-dashboard" class="tab-content active-tab">
+                    <h2>Mission Dashboard</h2>
+                    <div class="card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 id="shiftStatus">Status: <span style="color:gray">OFFLINE</span></h3>
+                            <div id="gpsIndicator" style="font-size:0.7rem; color:red;">GPS: SEARCHING</div>
+                        </div>
+                        <p id="dashName">Officer: Loading...</p>
+                        
+                        <div id="idleWarning" style="display:none; background:rgba(255,165,0,0.1); border:1px solid orange; padding:10px; border-radius:5px; margin:10px 0; font-size:0.8rem; color:orange;">
+                            ⚠ IDLE MODE: TIME IS UNPAID unless assigned to an active Shift.
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin:15px 0;">
+                            <div class="stat-box"><div class="stat-val" id="stIdle">0h</div><div class="stat-lbl">IDLE</div></div>
+                            <div class="stat-box"><div class="stat-val" id="stTrain">0h</div><div class="stat-lbl">TRAINING</div></div>
+                            <div class="stat-box"><div class="stat-val" id="stAvgOp">0m</div><div class="stat-lbl">AVG OPS</div></div>
+                            <div class="stat-box"><div class="stat-val" id="stRefuse">0%</div><div class="stat-lbl">REFUSAL</div></div>
+                        </div>
+                        
+                        <div class="card" style="margin-top:10px; background:#111;">
+                            <h4 style="margin:0 0 10px 0; font-size:0.9rem; color:#aaa;">Operations Covered</h4>
+                            <div id="opsBreakdown" style="font-size:0.8rem; display:flex; flex-wrap:wrap; gap:10px;">Loading...</div>
+                        </div>
+
+                        <div class="grid-2" style="margin-top:15px;">
+                            <button id="btnIdle" class="btn btn-orange" style="display:none;" onclick="toggleIdle()">PAUSE (Go Idle)</button>
+                            <button id="btnClock" class="btn btn-green" style="width:100%;" onclick="toggleShift()">START SHIFT (Clock In)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-profile" class="tab-content">
+                    <h2>Personnel File</h2>
+                    <div class="card">
+                        <div style="text-align:center; margin-bottom:20px;">
+                             <img id="profPicDisplay" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" style="width:100px; height:100px; border-radius:50%; border:2px solid #3b82f6;">
+                             <br><label style="cursor:pointer; color:#3b82f6; font-size:0.8rem;">Update Photo <input type="file" id="picInput" style="display:none;" onchange="uploadProfilePic()"></label>
+                        </div>
+                        <div style="background:rgba(255,0,0,0.1); padding:10px; border:1px solid red; margin-bottom:15px; display:none;" id="profLockMsg">
+                            🔒 RESTRICTED: Only Command can edit official details.
+                        </div>
+                        <div class="grid-2">
+                            <div><label class="doc-label">Full Name</label><input type="text" id="profName" class="form-input" disabled></div>
+                            <div><label class="doc-label">Rank (Command Only)</label><input type="text" id="profRank" class="form-input" disabled></div>
+                            <div><label class="doc-label">Call Sign (Command Only)</label><input type="text" id="profCallSign" class="form-input" disabled></div>
+                            <div><label class="doc-label">Role/Title</label><input type="text" id="profTitle" class="form-input" disabled></div>
+                            <div><label class="doc-label">Team (Command Only)</label><input type="text" id="profTeam" class="form-input" disabled></div>
+                            <div><label class="doc-label">Direct Manager</label><input type="text" id="profManager" class="form-input" disabled></div>
+                            <div><label class="doc-label">Security License #</label><input type="text" id="profSecLicNum" class="form-input" disabled></div>
+                            <div><label class="doc-label">Phone</label><input type="text" id="profPhone" class="form-input"></div>
+                        </div>
+                        <button class="btn btn-blue" style="width:100%; margin-top:20px;" onclick="saveProfile()">SAVE CHANGES</button>
+                    </div>
+                </div>
+
+                <div id="tab-team" class="tab-content"><h2>My Team (Organizational Chart)</h2><div class="card" id="orgChartContainer">Loading Team Structure...</div></div>
+                <div id="tab-setup" class="tab-content"><h2>Personal Setup</h2><div class="card"><h3>Customization</h3><div class="grid-2"><div><label class="doc-label">Radio LED Color</label><input type="color" id="prefRadioColor" class="color-picker" value="#ff4500" onchange="savePreferences()"></div><div><label class="doc-label">App Accent Color</label><input type="color" id="prefAccentColor" class="color-picker" value="#3b82f6" onchange="savePreferences()"></div></div><h3 style="margin-top:20px;">My Status</h3><input type="text" id="prefStatus" class="form-input" placeholder="e.g. On Duty, On Break, Patrol" onchange="savePreferences()"></div></div>
+                
+                <div id="tab-timesheet" class="tab-content">
+                    <h2>Timesheet & Payroll</h2>
+                    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <div><div style="color:#94a3b8; font-size:0.8rem; text-transform:uppercase;">Current Pay Cycle</div><div id="tsCycleDates" style="font-size:1.2rem; font-weight:bold; color:white;">Calculating...</div></div>
+                            <div style="text-align:right;"><div style="color:#ef4444; font-weight:bold;" id="tsCountdown">-- Days Left</div><div style="font-size:0.7rem; color:#94a3b8;">Cutoff: Sunday 00:00</div></div>
+                        </div>
+                        <div class="grid-2" style="gap:10px; margin-top:15px; text-align:center;">
+                            <div class="stat-box"><div id="tsTotalHours" style="font-size:1.5rem; color:#3b82f6; font-weight:bold;">0.0</div><div style="font-size:0.7rem;">Total Hrs</div></div>
+                            <div class="stat-box"><div id="tsStatus" style="font-size:1.5rem; color:#a855f7; font-weight:bold;">Open</div><div style="font-size:0.7rem;">Status</div></div>
+                        </div>
+                        <button id="btnSubmitTimesheet" class="btn btn-green" style="width:100%; margin-top:15px; opacity:0.5; cursor:not-allowed;" onclick="submitTimesheet()">Submit for Payroll (Locked)</button>
+                        <div id="tsReminder" style="margin-top:10px; font-size:0.8rem; color:#f59e0b; display:none; text-align:center;">⚠️ Reminder: Please review and submit 48hrs before cutoff.</div>
+                    </div>
+                    <div class="card"><h3>Shift History</h3><div style="overflow-x:auto;"><table class="ts-table"><thead><tr><th>Date</th><th>In</th><th>Out</th><th>Hrs</th><th>Status</th></tr></thead><tbody id="tsTableBody"><tr><td colspan="5" style="text-align:center; padding:20px;">Loading history...</td></tr></tbody></table></div></div>
+                </div>
+
+                <div id="tab-schedule" class="tab-content"><h2>Scheduled Operations</h2><div class="card"><h3>My Assigned Shifts</h3><div id="myScheduleList">Loading...</div></div><div class="card" style="border-left: 4px solid var(--green);"><h3>Open Shifts (Available)</h3><div id="openScheduleList">Loading...</div></div><div class="card" style="border-left: 4px solid var(--orange);"><h3>Shift Trade Board</h3><div id="tradeScheduleList">Loading...</div></div></div>
+                <div id="tab-tasks" class="tab-content"><h2>TOC Tasks & Dispatch</h2><div class="card" style="background:#1e293b; border-left: 4px solid var(--accent);"><div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:2rem; font-weight:bold; color:white;" id="openTaskCount">0</div><div style="font-size:0.8rem; color:#94a3b8;">OPEN INCIDENTS</div></div><div style="text-align:right;"><div style="font-size:2rem; font-weight:bold; color:var(--green);" id="closedTaskCount">0</div><div style="font-size:0.8rem; color:#94a3b8;">CLOSED TODAY</div></div></div></div><div class="card"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><h3>Dispatch Log</h3><button class="btn btn-blue" style="font-size:0.7rem; padding:5px 10px;" onclick="loadTasks()">REFRESH</button></div><div style="overflow-x:auto;"><table class="ts-table"><thead><tr><th>Status</th><th>Type</th><th>Location</th><th>Assigned</th><th>Time</th></tr></thead><tbody id="taskListBody"><tr><td colspan="5" style="text-align:center;">Loading tasks...</td></tr></tbody></table></div></div></div>
+                <div id="tab-reports" class="tab-content"><h2>Report Writer</h2><div class="card"><h3>New Report</h3><div class="grid-2"><div><label class="doc-label">Category</label><select id="repCategory" class="form-input" onchange="updateReportTypes()"><option value="toc">TOC Task Report</option><option value="internal">Internal Report</option></select></div><div><label class="doc-label">Report Type</label><select id="repType" class="form-input"></select></div></div><div style="margin-top:10px;"><label class="doc-label">Location / Asset ID</label><input type="text" id="repLocation" class="form-input" placeholder="e.g. 123 Main St OR Vehicle #404"></div><div style="margin-top:10px;"><label class="doc-label">Narrative / Details</label><textarea id="repNar" class="form-input" rows="6" placeholder="Describe the incident, inspection, or task details..."></textarea></div><div style="margin-top:15px; border-top:1px solid #334155; padding-top:10px;"><label class="doc-label">📎 Attachments</label><label class="doc-upload-box"><span style="font-size:1.5rem;">📂</span><span>Select Files</span><input type="file" id="repFiles" multiple style="display:none;" onchange="updateFileCount()"></label><div id="fileCountMsg" style="font-size:0.8rem; color:#94a3b8; text-align:center;">No files selected</div></div><button class="btn btn-blue" style="width:100%; margin-top:10px;" id="btnSubmitRep" onclick="submitReport()">SUBMIT FOR APPROVAL</button></div><div class="card"><h3>Report History (Status)</h3><div id="reportHistoryList">Loading...</div></div></div>
+                <div id="tab-staff" class="tab-content"><h2>Staff</h2><div class="card" id="staffList">Loading...</div></div>
+                <div id="tab-tickets" class="tab-content"><h2>Tickets</h2><div class="card"><input type="text" id="tickDesc" class="form-input" placeholder="Ticket Description"><button class="btn btn-green" onclick="createTicket()">Create Ticket</button></div><div class="card"><div id="ticketList">Loading...</div></div></div>
+                <div id="tab-clients" class="tab-content"><h2>Clients</h2><div class="card"><input type="text" id="cliName" class="form-input" placeholder="Client Name"><button class="btn btn-blue" onclick="addClient()">Add Client</button></div><div class="card"><div id="clientList">Loading...</div></div></div>
+                <div id="tab-admin" class="tab-content"><h2>Config</h2><div class="card"><button class="btn btn-blue" onclick="saveConfig()">Update Config</button></div></div>
+                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="app-grid"><a href="https://workforce.intuit.com" target="_blank" class="app-icon">💰<span>QuickBooks</span></a><a href="https://map.navdrone.ca" target="_blank" class="app-icon">🚁<span>NavDrone</span></a><a href="https://app.connecteam.com" target="_blank" class="app-icon">📱<span>Connecteam</span></a><a href="https://zello.com" target="_blank" class="app-icon">📻<span>Zello</span></a></div></div>
+                <div id="tab-training" class="tab-content"><h2>Academy</h2><div class="card" id="courseList">Loading courses...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = () => {
+            if(sb) {
+                sb.auth.getSession().then(({ data: { session } }) => {
+                    if (session) { document.getElementById('authModal').style.display = 'none'; fetchProfile(session.user.id, session.user.email); } 
+                    else { document.getElementById('authModal').style.display = 'flex'; }
+                });
+                sb.auth.onAuthStateChange(async (event, session) => {
+                    if (event === 'SIGNED_IN' && session) { document.getElementById('authModal').style.display = 'none'; fetchProfile(session.user.id, session.user.email); }
+                    else if (event === 'SIGNED_OUT') { document.getElementById('authModal').style.display = 'flex'; currentUser = null; document.getElementById('chatArea').innerHTML = ''; }
+                });
+            }
+            if(typeof io !== 'undefined') { socket = io(); setupSocketListeners(); }
+        };
+
+        // --- RADIO UI ---
+        function adjustScreen(prop, val) {
+            const screen = document.getElementById('radioScreen');
+            if(prop === 'brightness') screen.style.filter = `brightness(${val}%) contrast(${document.querySelector('input[oninput*="contrast"]').value}%)`;
+            if(prop === 'contrast') screen.style.filter = `contrast(${val}%) brightness(${document.querySelector('input[oninput*="brightness"]').value}%)`;
+        }
+        function volUp() { if(masterGain.gain.value < 2) masterGain.gain.value += 0.2; }
+        function volDown() { if(masterGain.gain.value > 0.2) masterGain.gain.value -= 0.2; }
+        function toggleMute() { isMuted = !isMuted; masterGain.gain.value = isMuted ? 0 : 1; document.getElementById('btnMute').style.color = isMuted ? "red" : "#aaa"; }
+        function configPtt() { alert("Hold SPACEBAR to talk."); }
+
+        // --- PROFILE & PREFS ---
+        async function fetchProfile(uid, email) {
+            try {
+                let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
+                if (!profile) { await sb.from('profiles').insert([{ id: uid, email: email, full_name: "Officer", role: "Unassigned" }]); const res = await sb.from('profiles').select('*').eq('id', uid).single(); profile = res.data; }
+                if(profile) {
+                    currentUser = profile;
+                    
+                    // PREFERENCES
+                    if(profile.preferences) {
+                        document.documentElement.style.setProperty('--radio-color', profile.preferences.radioColor || '#ff4500');
+                        document.documentElement.style.setProperty('--accent', profile.preferences.accentColor || '#3b82f6');
+                        document.getElementById('prefRadioColor').value = profile.preferences.radioColor || '#ff4500';
+                        document.getElementById('prefAccentColor').value = profile.preferences.accentColor || '#3b82f6';
+                        document.getElementById('prefStatus').value = profile.current_status || 'Active';
+                    }
+
+                    // STATUS CHECK
+                    if(profile.current_status === 'Active') { isClockedIn = true; isIdle = false; }
+                    else if(profile.current_status === 'Idle') { isClockedIn = true; isIdle = true; }
+                    else { isClockedIn = false; isIdle = false; }
+                    updateAccessLevel();
+
+                    // DASH
+                    document.getElementById('dashName').innerText = "Officer: " + (profile.full_name || "Unknown");
+                    document.getElementById('dashRole').innerText = "Role: " + (profile.role || "Unassigned");
+                    
+                    // STATS (SAFE LOAD)
+                    const totalAssign = (profile.stats_accepted || 0) + (profile.stats_refused || 0);
+                    const refusalRatio = totalAssign > 0 ? ((profile.stats_refused / totalAssign) * 100).toFixed(1) + "%" : "0%";
+                    document.getElementById('stRefuse').innerText = refusalRatio;
+                    document.getElementById('stTrain').innerText = (profile.stats_training_hours || 0) + "h";
+                    document.getElementById('stIdle').innerText = (profile.stats_idle_hours || 0) + "h";
+
+                    // OPS BREAKDOWN
+                    const opsDiv = document.getElementById('opsBreakdown');
+                    opsDiv.innerHTML = '';
+                    if(profile.stats_ops_breakdown) {
+                        for (const [key, value] of Object.entries(profile.stats_ops_breakdown)) {
+                            opsDiv.innerHTML += `<div style="background:#333; padding:5px; border-radius:3px; margin:2px;">${key}: <b>${value}</b></div>`;
+                        }
+                    } else { opsDiv.innerText = "No operations recorded."; }
+
+                    // PROFILE FORM - RESTRICTIONS
+                    const isCommand = ['Admin','Command','Dispatch'].includes(profile.role);
+                    document.getElementById('profName').value = profile.full_name || "";
+                    document.getElementById('profRank').value = profile.rank || "";
+                    document.getElementById('profCallSign').value = profile.call_sign || "";
+                    document.getElementById('profTitle').value = profile.role || ""; 
+                    document.getElementById('profTeam').value = profile.team_name || "";
+                    document.getElementById('profManager').value = profile.direct_manager || "";
+                    document.getElementById('profSecLicNum').value = profile.security_license_number || "";
+                    document.getElementById('profPhone').value = profile.phone || ""; 
+                    document.getElementById('profStart').value = profile.start_date || "";
+                    document.getElementById('profTerm').value = profile.term_date || "";
+                    
+                    if(profile.profile_pic_url) {
+                        document.getElementById('profPicDisplay').src = profile.profile_pic_url;
+                        document.getElementById('setupPicDisplay').src = profile.profile_pic_url;
+                    }
+
+                    if(!isCommand) {
+                        document.getElementById('profRank').disabled = true;
+                        document.getElementById('profCallSign').disabled = true;
+                        document.getElementById('profTitle').disabled = true;
+                        document.getElementById('profTeam').disabled = true;
+                        document.getElementById('profManager').disabled = true;
+                        document.getElementById('profSecLicNum').disabled = true;
+                        document.getElementById('profStart').disabled = true;
+                        document.getElementById('profTerm').disabled = true;
+                        document.getElementById('profLockMsg').style.display = 'block';
+                    } else {
+                        document.querySelectorAll('#tab-profile input').forEach(el => el.disabled = false);
+                        document.getElementById('profLockMsg').style.display = 'none';
+                        document.getElementById('commandLinks').style.display = 'block';
+                        document.getElementById('cmdRadioTools').style.display = 'block';
+                    }
+                    
+                    if(socket) {
+                        socket.emit('join-channel', 'MAIN');
+                        if(navigator.geolocation) {
+                            navigator.geolocation.watchPosition(
+                                pos => {
+                                    const lat = pos.coords.latitude; const lng = pos.coords.longitude; const acc = pos.coords.accuracy;
+                                    socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
+                                    
+                                    // GPS TRAIL
+                                    if(!pathCoords) pathCoords = [];
+                                    pathCoords.push([lat, lng]);
+                                    if(myPathLine) myPathLine.setLatLngs(pathCoords);
+                                    else myPathLine = L.polyline(pathCoords, {color: 'red'}).addTo(map);
+
+                                    if(!myMarker) { myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 1, radius: 8 }).addTo(map); myAccuracy = L.circle([lat, lng], { radius: acc, color: '#3b82f6', fillOpacity: 0.1, weight: 1 }).addTo(map); map.setView([lat, lng], 16); }
+                                    else { myMarker.setLatLng([lat, lng]); myAccuracy.setLatLng([lat, lng]); myAccuracy.setRadius(acc); }
+                                    document.getElementById('gpsIndicator').innerText = "GPS: LIVE ✅"; document.getElementById('gpsIndicator').style.color = "var(--green)";
+                                    checkGeofences(lat, lng);
+                                },
+                                err => { document.getElementById('gpsIndicator').innerText = "GPS: BLOCKED ❌"; },
+                                { enableHighAccuracy: true }
+                            );
+                        }
+                    }
+                    loadAllData();
+                }
+            } catch(e) { console.error("Profile Error:", e); }
+        }
+
+        async function checkGeofences(lat, lng) {
+            const { data } = await sb.from('geofences').select('*');
+            if(data) {
+                data.forEach(fence => {
+                    const d = map.distance([lat, lng], [fence.lat, fence.lng]);
+                    // Logic to alert if inside zone can go here
+                });
+            }
+        }
+
+        async function savePreferences() {
+            const prefs = {
+                radioColor: document.getElementById('prefRadioColor').value,
+                accentColor: document.getElementById('prefAccentColor').value
+            };
+            const status = document.getElementById('prefStatus').value;
+            
+            document.documentElement.style.setProperty('--radio-color', prefs.radioColor);
+            document.documentElement.style.setProperty('--accent', prefs.accentColor);
+
+            await sb.from('profiles').update({ preferences: prefs, current_status: status }).eq('id', currentUser.id);
+        }
+
+        async function loadOrgChart() {
+            const { data } = await sb.from('profiles').select('full_name, rank, current_status').neq('full_name', null);
+            const container = document.getElementById('orgChartContainer');
+            container.innerHTML = '';
+            
+            const rankOrder = { 'Chief':1, 'Deputy Chief':2, 'Commander':3, 'Captain':4, 'Lieutenant':5, 'Sergeant':6, 'Corporal':7, 'Officer':8, 'Recruit':9, 'Unassigned':10 };
+            
+            data.sort((a,b) => (rankOrder[a.rank] || 10) - (rankOrder[b.rank] || 10));
+
+            data.forEach(p => {
+                let dotColor = 'dot-gray';
+                let statusText = p.current_status || 'Off Duty';
+                if(statusText === 'Active') { dotColor = 'dot-green'; statusText = 'Online & Active'; }
+                else if(statusText === 'Idle') { dotColor = 'dot-orange'; }
+
+                const html = `
+                    <div class="org-node">
+                        <span class="status-dot ${dotColor}"></span>
+                        <div class="org-rank">${p.rank || 'OFFICER'}</div>
+                        <div class="org-name">${p.full_name}</div>
+                        <div class="org-status">${statusText}</div>
+                    </div>`;
+                container.innerHTML += html;
+            });
+        }
+
+        // --- ALL DATA LOADERS ---
+        function loadAllData() {
+            loadStaff(); loadTickets(); loadClients(); loadCourses(); loadRadioHistory(); loadStats(currentUser.full_name); loadTimesheetData(); loadTasks(); loadSchedule(); loadReportConfig(); loadReportHistory(); loadChannels(); loadOrgChart();
+        }
+
+        // --- EXISTING LOGIC ---
+        async function loadChannels() { const { data } = await sb.from('radio_channels').select('*'); const list = document.getElementById('channelList'); list.innerHTML = `<button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>`; if(data) { data.forEach(c => { if(c.name === 'MAIN') return; list.innerHTML += `<button onclick="changeChannel('${c.name}')" class="chan-btn" id="btn${c.name}">${c.name}</button>`; }); } }
+        async function addChannel() { const name = prompt("Enter Channel Name:"); if(!name) return; await sb.from('radio_channels').insert([{ name: name.toUpperCase(), created_by: currentUser.full_name }]); loadChannels(); }
+        function clearChatter() { if(!confirm("Clear chat view?")) return; document.getElementById('chatArea').innerHTML = ''; }
+        async function exportRadioLogs() { const { data } = await sb.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(100); const json = JSON.stringify(data, null, 2); const blob = new Blob([json], {type: "application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = "radio_logs.json"; a.click(); }
+        async function loadReportConfig() { let { data } = await sb.from('app_config').select('value').eq('key', 'report_config').single(); if(!data) { reportConfig = { toc: ["ATM Escort", "Alarm Response", "Patrol", "Incident", "Other"], internal: ["Vehicle Check", "Gear Check", "Other"] }; } else { reportConfig = data.value; } updateReportTypes(); }
+        function updateReportTypes() { const cat = document.getElementById('repCategory').value; const sel = document.getElementById('repType'); sel.innerHTML = ''; if(currentUser && (currentUser.role === 'Dispatch' || currentUser.role === 'Command')) { const opt = document.createElement('option'); opt.value = "Dispatch Report"; opt.innerText = "*** DISPATCH REPORT ***"; sel.appendChild(opt); } if(currentUser && currentUser.role === 'Command') { const opt = document.createElement('option'); opt.value = "Command Report"; opt.innerText = "*** COMMAND REPORT ***"; sel.appendChild(opt); } if(reportConfig && reportConfig[cat]) { reportConfig[cat].forEach(type => { const opt = document.createElement('option'); opt.value = type; opt.innerText = type; sel.appendChild(opt); }); } }
+        function updateFileCount() { const input = document.getElementById('repFiles'); const count = input.files.length; document.getElementById('fileCountMsg').innerText = count > 0 ? `✅ ${count} file(s) selected` : "No files selected"; }
+        async function submitReport() { const btn = document.getElementById('btnSubmitRep'); btn.innerText = "UPLOADING..."; btn.disabled = true; const cat = document.getElementById('repCategory').value; const type = document.getElementById('repType').value; const loc = document.getElementById('repLocation').value; const nar = document.getElementById('repNar').value; const fileInput = document.getElementById('repFiles'); if(!nar) { alert("Please enter narrative."); btn.innerText = "SUBMIT"; btn.disabled = false; return; } let attachmentUrls = []; if(fileInput.files.length > 0) { for(let i=0; i<fileInput.files.length; i++) { const file = fileInput.files[i]; const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`; const { data, error } = await sb.storage.from('report_files').upload(fileName, file); if(!error) { const { data: publicData } = sb.storage.from('report_files').getPublicUrl(fileName); attachmentUrls.push(publicData.publicUrl); } } } await sb.from('field_reports').insert([{ officer_name: currentUser.full_name, category: cat, incident_type: type, location: loc, narrative: nar, status: 'Pending', attachments: attachmentUrls }]); alert("Report Submitted."); document.getElementById('repNar').value = ""; document.getElementById('repFiles').value = ""; updateFileCount(); btn.innerText = "SUBMIT FOR APPROVAL"; btn.disabled = false; loadReportHistory(); loadStats(currentUser.full_name); }
+        async function loadReportHistory() { let query = sb.from('field_reports').select('*').order('created_at', { ascending: false }); if(currentUser.role !== 'Command' && currentUser.role !== 'Dispatch') query = query.eq('officer_name', currentUser.full_name); const { data } = await query; const div = document.getElementById('reportHistoryList'); div.innerHTML = ''; if(data && data.length > 0) { data.forEach(r => { let stClass = 'rep-status-pending'; if(r.status === 'Approved') stClass = 'rep-status-approved'; if(r.status === 'Rejected') stClass = 'rep-status-rejected'; let attachHtml = ''; if(r.attachments && r.attachments.length > 0) { attachHtml = '<div class="file-list">Attachments: '; r.attachments.forEach((url, idx) => { attachHtml += `<a href="${url}" target="_blank" class="file-link">File ${idx+1}</a>`; }); attachHtml += '</div>'; } const html = `<div class="rep-item"><div style="display:flex; justify-content:space-between;"><div style="font-weight:bold;">${r.incident_type}</div><div class="${stClass}">${r.status}</div></div><div style="font-size:0.8rem; color:#94a3b8;">${new Date(r.created_at).toLocaleString()} | ${r.location || 'No Loc'}</div><div style="font-size:0.8rem; color:#ccc; margin-top:5px;">${r.narrative.substring(0, 50)}...</div>${attachHtml}${r.admin_notes ? `<div style="font-size:0.7rem; color:${stClass}; margin-top:5px;">Note: ${r.admin_notes}</div>` : ''}</div>`; div.innerHTML += html; }); } else div.innerHTML = '<div style="padding:15px; color:#64748b;">No reports found.</div>'; }
+        async function loadSchedule() { const { data } = await sb.from('schedule_shifts').select('*').order('start_time', { ascending: true }); const myDiv = document.getElementById('myScheduleList'); const openDiv = document.getElementById('openScheduleList'); const tradeDiv = document.getElementById('tradeScheduleList'); myDiv.innerHTML = ''; openDiv.innerHTML = ''; tradeDiv.innerHTML = ''; let hasMy = false; let hasOpen = false; let hasTrade = false; if(data) { data.forEach(s => { const html = `<div class="job-card ${s.status === 'Open' ? 'open' : (s.is_trade_requested ? 'trade' : '')}"><div class="job-header"><div class="job-title">${s.job_title}</div><div style="font-size:0.8rem;">${new Date(s.start_time).toLocaleDateString()}</div></div><div class="job-detail">📍 ${s.location} (${s.client_name})</div><div class="job-detail">⏰ ${new Date(s.start_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} - ${new Date(s.end_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div class="job-detail">👤 POC: ${s.poc_info || 'N/A'}</div><div class="job-detail">📝 Orders: ${s.post_orders || 'Standard'}</div><div class="job-detail">📋 Reports: ${s.req_reports || 'Incident, Daily'}</div>${s.assigned_to === currentUser.full_name ? `<button class="btn btn-red" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="requestReassignment('${s.id}')">Request Reassignment</button><div class="job-alert">⚠ 48hr Notice Required. No Guarantee.</div>` : ''}${s.status === 'Open' ? `<button class="btn btn-green" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="claimShift('${s.id}')">Claim Shift</button>` : ''}${s.is_trade_requested && s.assigned_to !== currentUser.full_name ? `<button class="btn btn-blue" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="claimShift('${s.id}')">Accept Trade</button>` : ''}</div>`; if(s.assigned_to === currentUser.full_name) { myDiv.innerHTML += html; hasMy = true; } else if(s.status === 'Open') { openDiv.innerHTML += html; hasOpen = true; } else if(s.is_trade_requested) { tradeDiv.innerHTML += html; hasTrade = true; } }); } if(!hasMy) myDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No assigned shifts.</div>'; if(!hasOpen) openDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No open shifts.</div>'; if(!hasTrade) tradeDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No trades posted.</div>'; }
+        async function requestReassignment(id) { if(!confirm("Warning: Requesting reassignment does not guarantee approval. You are responsible for this shift until notified otherwise. Proceed?")) return; await sb.from('schedule_shifts').update({ is_trade_requested: true }).eq('id', id); alert("Request Submitted."); loadSchedule(); }
+        async function claimShift(id) { if(!confirm("Confirm shift acceptance?")) return; await sb.from('schedule_shifts').update({ status: 'Assigned', assigned_to: currentUser.full_name, is_trade_requested: false }).eq('id', id); alert("Shift Assigned to You."); loadSchedule(); }
+        async function loadTasks() { const { data } = await sb.from('tickets').select('*').order('created_at', { ascending: false }); let openCount = 0; let closedCount = 0; const tbody = document.getElementById('taskListBody'); tbody.innerHTML = ''; if(data && data.length > 0) { data.forEach(t => { if(t.status === 'Open') openCount++; if(t.status === 'Closed') closedCount++; let statusClass = 'task-status-open'; if(t.status === 'Closed') statusClass = 'task-status-closed'; if(t.status === 'Canceled') statusClass = 'task-status-cancelled'; tbody.innerHTML += `<tr><td class="${statusClass}"><b>${t.status || 'Open'}</b></td><td>${t.type || 'General'}</td><td>${t.location || 'Unknown'}</td><td>${t.assigned_to || 'Unassigned'}</td><td>${new Date(t.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td></tr>`; }); } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No dispatch calls found.</td></tr>'; document.getElementById('openTaskCount').innerText = openCount; document.getElementById('closedTaskCount').innerText = closedCount; }
+        async function loadTimesheetData() { const refDate = new Date('2025-12-28T00:00:00'); const now = new Date(); const msPerCycle = 14 * 24 * 60 * 60 * 1000; const diff = now - refDate; const cyclesPassed = Math.floor(diff / msPerCycle); const currentStart = new Date(refDate.getTime() + (cyclesPassed * msPerCycle) + (24*60*60*1000)); const currentEnd = new Date(refDate.getTime() + ((cyclesPassed + 1) * msPerCycle)); const fmt = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' }); document.getElementById('tsCycleDates').innerText = `${fmt(currentStart)} - ${fmt(currentEnd)}`; const daysLeft = Math.ceil((currentEnd - now) / (1000 * 60 * 60 * 24)); document.getElementById('tsCountdown').innerText = `${daysLeft} Days Left`; if(daysLeft <= 2) document.getElementById('tsReminder').style.display = 'block'; if(daysLeft <= 0 || daysLeft <= 2) { const btn = document.getElementById('btnSubmitTimesheet'); btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.innerText = "Submit for Payroll"; } const { data } = await sb.from('timesheets').select('*').eq('officer_name', currentUser.full_name).gte('created_at', currentStart.toISOString()).lte('created_at', currentEnd.toISOString()).order('created_at', { ascending: false }); let totalHrs = 0; const tbody = document.getElementById('tsTableBody'); tbody.innerHTML = ''; if(data && data.length > 0) { data.forEach(t => { let hrs = 0; if(t.clock_out) { const inTime = new Date(t.clock_in); const outTime = new Date(t.clock_out); hrs = ((outTime - inTime) / (1000 * 60 * 60)).toFixed(1); totalHrs += parseFloat(hrs); } tbody.innerHTML += `<tr><td>${new Date(t.clock_in).toLocaleDateString()}</td><td>${new Date(t.clock_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td><td>${t.clock_out ? new Date(t.clock_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Active'}</td><td>${hrs || '-'}</td><td class="ts-status-${(t.status||'Open').toLowerCase()}">${t.status || 'Open'}</td></tr>`; }); } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No shifts this cycle.</td></tr>'; document.getElementById('tsTotalHours').innerText = totalHrs.toFixed(1); }
+        async function submitTimesheet() { if(document.getElementById('btnSubmitTimesheet').style.opacity === '0.5') return; alert("Timesheet Submitted for Approval."); }
+        async function saveProfile() { 
+            if(!currentUser) return;
+            const updates = { phone: document.getElementById('profPhone').value };
+            // COMMAND ONLY
+            if(['Admin','Command','Dispatch'].includes(currentUser.role)) {
+                updates.rank = document.getElementById('profRank').value;
+                updates.call_sign = document.getElementById('profCallSign').value;
+                updates.role = document.getElementById('profTitle').value;
+                updates.team_name = document.getElementById('profTeam').value;
+                updates.direct_manager = document.getElementById('profManager').value;
+                updates.security_license_number = document.getElementById('profSecLicNum').value;
+                updates.start_date = document.getElementById('profStart').value || null;
+                updates.term_date = document.getElementById('profTerm').value || null;
+            }
+            const { error } = await sb.from('profiles').update(updates).eq('id', currentUser.id);
+            if(error) alert("Error saving: " + error.message); else alert("Personnel File Updated.");
+        }
+        function uploadDoc(col, input) { const file = input.files[0]; if(!file || file.size > 5*1024*1024) return alert("File too large"); const reader = new FileReader(); reader.onloadend = async () => { let up = {}; up[col] = reader.result; await sb.from('profiles').update(up).eq('id', currentUser.id); alert("Document Uploaded."); }; reader.readAsDataURL(file); }
+        async function uploadProfilePic() { const file = document.getElementById('picInput').files[0]; if(!file) return; const reader = new FileReader(); reader.onloadend = async () => { document.getElementById('profPicDisplay').src = reader.result; document.getElementById('setupPicDisplay').src = reader.result; await sb.from('profiles').update({ profile_pic_url: reader.result }).eq('id', currentUser.id); }; reader.readAsDataURL(file); }
+        async function loadStats(name) { try { const res = await fetch('/api/stats/' + name); const data = await res.json(); document.getElementById('statReports').innerText = data.reports || 0; document.getElementById('statHours').innerText = data.hours || "0.0"; } catch(e) {} }
+        async function loadStaff() { const res = await fetch('/api/staff'); const data = await res.json(); const div = document.getElementById('staffList'); if(data.length === 0) { div.innerHTML = "No staff found."; return; } let html = '<table style="width:100%; border-collapse:collapse;"><tr><th>Name</th><th>Role</th></tr>'; data.forEach(u => html += `<tr><td style="padding:8px; border-bottom:1px solid #333">${u.full_name}</td><td style="padding:8px; border-bottom:1px solid #333">${u.role}</td></tr>`); div.innerHTML = html + '</table>'; }
+        async function loadTickets() { const res = await fetch('/api/tickets'); const data = await res.json(); document.getElementById('ticketList').innerHTML = data.length ? data.map(t => `<div style="padding:10px; border-bottom:1px solid #333">${t.description} (${t.priority})</div>`).join('') : "No tickets."; }
+        async function loadClients() { const res = await fetch('/api/clients'); const data = await res.json(); document.getElementById('clientList').innerHTML = data.length ? data.map(c => `<div style="padding:10px; border-bottom:1px solid #333">${c.name}</div>`).join('') : "No clients."; }
+        async function loadCourses() { const res = await fetch('/api/courses'); const data = await res.json(); document.getElementById('courseList').innerHTML = data.length ? data.map(c => `<div>${c.title}</div>`).join('') : "No courses."; }
+        function setupSocketListeners() { socket.on('radio-playback', d => { addLog(d.name, "Audio", true, d.audio); if(d.audio && typeof d.audio === 'string' && d.audio.startsWith('data:audio')) { playSound('ptt-on'); const snd = new Audio(d.audio); snd.onended = () => playSound('ptt-off'); snd.play().catch(e => console.warn("Auto-play blocked")); } }); socket.on('radio-text-broadcast', d => addLog(d.name, d.msg, false)); }
+        function initMic() { return new Promise((resolve, reject) => { if(mediaRecorder && mediaRecorder.state !== 'inactive') return resolve(mediaRecorder); navigator.mediaDevices.getUserMedia({audio:true}).then(s => { if(audioCtx.state === 'suspended') audioCtx.resume(); mediaRecorder = new MediaRecorder(s); mediaRecorder.ondataavailable = e => audioChunks.push(e.data); mediaRecorder.onstop = () => { const reader = new FileReader(); reader.readAsDataURL(new Blob(audioChunks)); reader.onloadend = () => { if(currentUser && socket && audioChunks.length > 0) { socket.emit('radio-voice',{audio:reader.result, name:currentUser.full_name, channel: currentChannel, lat:0, lng:0}); addLog("Me", "Audio", true, reader.result); } }; audioChunks=[]; }; document.getElementById('audioUnlockBtn').innerText = "✅ AUDIO ACTIVE"; document.getElementById('audioUnlockBtn').style.color = "var(--radio-color)"; document.getElementById('audioUnlockBtn').style.borderColor = "var(--radio-color)"; resolve(mediaRecorder); }).catch(e => { alert("Mic Access Denied!"); reject(e); }); }); }
+        function playSound(type) { if(audioCtx.state === 'suspended') audioCtx.resume(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); osc.frequency.setValueAtTime(type==='ptt-on'?600:800, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+        function addLog(n, m, v, s) { const d = document.createElement('div'); d.className = 'chat-msg'; if(v) { d.innerHTML = `<div><b>${n}</b> <span style="font-size:0.8em; color:#999;">${new Date().toLocaleTimeString()}</span></div>`; if(s && typeof s === 'string' && s.startsWith('data:audio')) { const playBtn = document.createElement('button'); playBtn.innerText = "▶ PLAY"; playBtn.style.cssText = "background:#333; border:1px solid #555; color:var(--radio-color); margin-top:5px; cursor:pointer; padding:2px 8px; border-radius:4px;"; playBtn.onclick = () => { const sound = new Audio(s); sound.play().catch(e => console.error("Play error", e)); }; d.appendChild(playBtn); } else { d.innerHTML += " <i style='color:#666;'>(Audio unavailable)</i>"; } } else { d.innerHTML = `<b>${n}</b>: ${m}`; } const area = document.getElementById('chatArea'); area.appendChild(d); area.scrollTop = area.scrollHeight; }
+        function sendText() { const msg = document.getElementById('textInput').value; if(currentUser && socket && msg) { socket.emit('radio-text', {name:currentUser.full_name, msg, channel: currentChannel, lat:0, lng:0}); document.getElementById('textInput').value=''; } }
+        function changeChannel(ch) { if (ch === 'LOUNGE' && isDispatched) return alert("ACCESS DENIED"); currentChannel = ch; if(socket) socket.emit('join-channel', ch); document.getElementById('lcdChannel').innerText = ch; document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan')); if(document.getElementById('btn'+ch)) document.getElementById('btn'+ch).classList.add('active-chan'); }
+        const pttBtn = document.getElementById('pttBtn'); pttBtn.onmousedown = pttBtn.ontouchstart = async (e) => { e.preventDefault(); try { await initMic(); if (mediaRecorder.state === 'inactive') { playSound('ptt-on'); mediaRecorder.start(); pttBtn.classList.add('transmitting'); document.getElementById('lcdStatus').innerText = "TX..."; document.getElementById('lcdStatus').style.color = "red"; } } catch(e) { console.error("PTT Fail", e); } }; pttBtn.onmouseup = pttBtn.ontouchend = (e) => { e.preventDefault(); if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); playSound('ptt-off'); pttBtn.classList.remove('transmitting'); document.getElementById('lcdStatus').innerText = "STANDBY"; document.getElementById('lcdStatus').style.color = "var(--green)"; } };
+        async function createTicket() { const desc = document.getElementById('tickDesc').value; await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:null, type:'General', priority:'Normal', description:desc }) }); loadTickets(); }
+        async function addClient() { const name = document.getElementById('cliName').value; await fetch('/api/clients', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, phone:'-', address:'-' }) }); loadClients(); }
+        function saveConfig() { alert("Config Saved"); }
+        const map = L.map('map').setView([0,0], 2); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
+        function showTab(id) { document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab')); document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active')); document.getElementById('tab-'+id).classList.add('active-tab'); event.currentTarget.classList.add('active'); if(window.innerWidth < 768) document.querySelector('.sidebar').classList.remove('open'); }
+        function clearChatter() { if(!confirm("Clear chat view?")) return; document.getElementById('chatArea').innerHTML = ''; }
+        async function exportRadioLogs() { const { data } = await sb.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(100); const json = JSON.stringify(data, null, 2); const blob = new Blob([json], {type: "application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = "radio_logs.json"; a.click(); }
+    </script>
+</body>
+</html>
