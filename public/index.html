@@ -21,9 +21,12 @@
         let currentChannel = 'MAIN';
         let isDispatched = false; 
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let masterGain = audioCtx.createGain(); // For Volume Control
+        masterGain.connect(audioCtx.destination);
         let myMarker = null; 
         let myAccuracy = null;
         let reportConfig = null;
+        let isMuted = false;
 
         // INIT
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
@@ -71,26 +74,135 @@
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
         
-        /* LAYOUT RESTRUCTURE v15 */
         .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; z-index: 50; transition: transform 0.3s; }
         .main-content { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; }
         
-        .top-deck { height: 50%; display: flex; border-bottom: 2px solid #334155; } /* Radio + Map */
-        .bottom-deck { flex: 1; display: flex; overflow: hidden; } /* Workspace */
+        /* NEW LAYOUT: RADIO RIGHT */
+        .top-deck { height: 60%; display: flex; border-bottom: 2px solid #334155; }
+        .bottom-deck { flex: 1; display: flex; overflow: hidden; }
         
-        .radio-silo { width: 320px; background: #0b1120; border-right: 1px solid #334155; display: flex; flex-direction: column; height: 100%; }
-        .workspace { flex: 1; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
+        #map { flex: 1; z-index: 1; }
+        
+        /* ADVANCED RADIO STYLING */
+        .radio-silo { 
+            width: 360px; 
+            background: linear-gradient(145deg, #1a1a1a, #0d0d0d); 
+            border-left: 4px solid #333; 
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+            padding: 10px;
+        }
+
+        .radio-casing {
+            background: #222;
+            border-radius: 15px;
+            padding: 15px;
+            border: 2px solid #444;
+            box-shadow: inset 0 0 20px #000;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .radio-screen-container {
+            background: #000;
+            padding: 5px;
+            border-radius: 8px;
+            border: 1px solid #555;
+            margin-bottom: 10px;
+            box-shadow: inset 0 0 10px #000;
+        }
+
+        .radio-screen {
+            background: #1a0500; /* Deep Red/Black base */
+            color: #ff4500; /* Tactical Orange/Red */
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border-radius: 4px;
+            height: 250px;
+            display: flex;
+            flex-direction: column;
+            text-shadow: 0 0 3px #ff4500;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .radio-header {
+            border-bottom: 2px dashed #550f0f;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-log { flex: 1; overflow-y: auto; font-size: 0.8rem; }
+        .chat-msg { margin-bottom: 4px; border-bottom: 1px solid #331100; padding: 2px 0; }
+        
+        /* HARDWARE CONTROLS */
+        .control-deck {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+            background: #111;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .knob-btn {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            background: radial-gradient(circle, #444, #111);
+            border: 2px solid #555;
+            color: #aaa;
+            font-size: 0.7rem;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: 0.1s;
+        }
+        .knob-btn:active { transform: scale(0.95); border-color: #ff4500; color: #ff4500; }
+        
+        .slider-group {
+            display: flex; gap: 5px; margin-bottom: 10px; align-items: center; font-size: 0.7rem; color: #888;
+        }
+        .slider-group input { flex: 1; accent-color: #ff4500; }
+
+        .tactical-ptt { 
+            width:100%; height:60px; 
+            background: repeating-linear-gradient(45deg, #222, #222 10px, #1a1a1a 10px, #1a1a1a 20px);
+            border: 2px solid #555; 
+            border-radius: 8px; 
+            color: #ccc; 
+            cursor: pointer; 
+            font-weight: bold;
+            text-shadow: 0 1px 2px black;
+        }
+        .tactical-ptt:active, .tactical-ptt.transmitting { 
+            background: #ff4500; 
+            color: black; 
+            box-shadow: 0 0 20px #ff4500; 
+            border-color: #ff8800;
+        }
 
         @media (max-width: 768px) {
             .sidebar { position: fixed; height: 100%; transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
-            .top-deck { flex-direction: column; height: auto; }
-            .radio-silo { width: 100%; height: 300px; border-bottom: 2px solid #334155; } 
+            .top-deck { flex-direction: column-reverse; height: auto; } /* Map below radio on mobile */
+            .radio-silo { width: 100%; height: auto; border-left: none; border-bottom: 2px solid #334155; }
+            #map { height: 300px; }
             .menu-toggle { display: block !important; }
         }
 
-        .menu-toggle { display: none; position: absolute; top: 10px; left: 10px; z-index: 1000; background: var(--panel); border: 1px solid #334155; padding: 8px; border-radius: 4px; color: white; cursor: pointer; }
-        
+        /* STANDARD UI */
+        .workspace { flex: 1; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
         .nav-cat { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 15px; font-weight: bold; }
         .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; display: flex; gap: 10px; transition: 0.2s; font-size: 0.95rem; }
         .nav-btn:hover { background: #334155; color: white; }
@@ -101,13 +213,6 @@
         .form-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; margin-bottom: 10px; }
         .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
         .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); }
-        .chat-log { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .chat-msg { padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #64748b; font-size: 0.9rem; }
-        .chat-voice { border-color: var(--orange); cursor: pointer; display: flex; align-items: center; gap: 10px; }
-        .chan-btn { flex: 1; min-width: 50px; background:#333; border:1px solid #555; color:#aaa; padding:5px; cursor:pointer; font-weight:bold; font-size:0.7rem; white-space: nowrap; }
-        .active-chan { background:#00ff00; color:black; border-color:#00ff00; box-shadow:0 0 10px #00ff00; }
-        .tactical-ptt { width:100%; height:80px; background:linear-gradient(#333, #111); border:2px solid #555; border-radius:8px; color:#aaa; cursor:pointer; transition:0.1s; }
-        .tactical-ptt:active, .tactical-ptt.transmitting { background:#f59e0b; color:black; border-color:#f59e0b; box-shadow:0 0 15px #f59e0b; transform:scale(0.98); }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
         .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
@@ -122,28 +227,20 @@
         .ts-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         .ts-table th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 8px; }
         .ts-table td { padding: 8px; border-bottom: 1px solid #334155; }
-        .task-status-open { color: #f59e0b; }
-        .task-status-closed { color: #10b981; }
-        .task-status-cancelled { color: #ef4444; }
+        .task-status-open { color: #f59e0b; } .task-status-closed { color: #10b981; } .task-status-cancelled { color: #ef4444; }
         .job-card { border-left: 4px solid var(--accent); background: rgba(255,255,255,0.03); padding: 15px; margin-bottom: 15px; border-radius: 4px; }
-        .job-card.trade { border-left-color: var(--orange); }
-        .job-card.open { border-left-color: var(--green); }
+        .job-card.trade { border-left-color: var(--orange); } .job-card.open { border-left-color: var(--green); }
         .job-header { display:flex; justify-content:space-between; margin-bottom:5px; }
         .job-title { font-weight:bold; color:white; font-size:1.1rem; }
         .job-detail { font-size:0.85rem; color:#94a3b8; margin-bottom:3px; }
-        .job-alert { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; font-size: 0.7rem; padding: 5px; margin-top: 10px; border-radius: 4px; text-align: center; }
-        .rep-status-pending { color: #f59e0b; }
-        .rep-status-approved { color: #10b981; }
-        .rep-status-rejected { color: #ef4444; }
+        .rep-status-pending { color: #f59e0b; } .rep-status-approved { color: #10b981; } .rep-status-rejected { color: #ef4444; }
         .rep-item { padding: 15px; border-bottom: 1px solid #334155; cursor: pointer; transition: 0.2s; }
         .rep-item:hover { background: rgba(255,255,255,0.05); }
-        .file-list { margin-top: 10px; font-size: 0.8rem; color: #ccc; }
-        .file-link { color: var(--accent); text-decoration: none; margin-right: 10px; }
-        .file-link:hover { text-decoration: underline; }
         
-        /* COMMAND CONTROLS */
-        .cmd-panel { background: #300; border-top: 2px solid #500; padding: 5px; display: none; text-align: center; }
-        .cmd-btn { background: #500; border: none; color: white; padding: 3px 8px; font-size: 0.65rem; cursor: pointer; margin: 2px; }
+        .cmd-panel { background: #200; border-top: 1px solid #500; padding: 5px; display: none; text-align: center; margin-top: 5px; }
+        .cmd-btn { background: #600; border: 1px solid #800; color: #fab; padding: 2px 6px; font-size: 0.6rem; cursor: pointer; margin: 1px; }
+        .cmd-btn:hover { background: #800; }
+        .menu-toggle { display: none; position: absolute; top: 10px; left: 10px; z-index: 1000; background: var(--panel); border: 1px solid #334155; padding: 8px; border-radius: 4px; color: white; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -175,7 +272,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v15.0 COMMAND & CTRL</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--orange);">v16.0 TACTICAL RADIO</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -205,41 +302,58 @@
 
     <div class="main-content">
         <div class="top-deck">
-            <div class="radio-silo">
-                <div style="background:#000; padding:15px; border-bottom:2px solid #444;">
-                    <div style="background:#0f380f; color:#00ff00; padding:10px; border:2px inset #0a2a0a; border-radius:4px; margin-bottom:10px;">
-                        <div id="lcdChannel" style="font-size:1.5rem; font-weight:bold;">MAIN</div>
-                        <div id="lcdStatus" style="font-size:0.7rem; margin-top:5px;">STANDBY</div>
-                    </div>
-                    <div style="display:flex; gap:5px; flex-wrap:wrap;" id="channelList">
-                        <button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>
-                    </div>
-                </div>
-                <div class="chat-log" id="chatArea" style="background:#1a1a1a; flex:1; padding:10px; font-size:0.8rem; font-family:sans-serif;"></div>
-                
-                <div class="cmd-panel" id="cmdRadioTools">
-                    <button class="cmd-btn" onclick="clearChatter()">CLEAR CHATTER</button>
-                    <button class="cmd-btn" onclick="exportRadioLogs()">EXPORT LOGS</button>
-                    <button class="cmd-btn" onclick="addChannel()">+ CHANNEL</button>
-                </div>
+            <div id="map"></div>
 
-                <div class="ptt-box" style="background:#222; padding:15px; border-top:2px solid #444;">
-                    <div style="display:flex; gap:5px; margin-bottom:10px;">
-                        <input type="text" id="textInput" style="background:#000; color:#0f0; border:1px solid #444; padding:8px; flex:1;" placeholder="TXT...">
-                        <button onclick="sendText()" style="background:#444; color:#fff; border:none; padding:0 15px; cursor:pointer;">SEND</button>
+            <div class="radio-silo">
+                <div class="radio-casing">
+                    
+                    <div class="radio-screen-container">
+                        <div id="radioScreen" class="radio-screen">
+                            <div class="radio-header">
+                                <span id="lcdChannel" style="font-weight:bold; font-size:1.2rem;">MAIN</span>
+                                <span id="lcdStatus" style="font-size:0.8rem;">STANDBY</span>
+                            </div>
+                            <div class="chat-log" id="chatArea"></div>
+                        </div>
                     </div>
-                    <button id="pttBtn" class="tactical-ptt">
-                        <div style="font-size:1.2rem;">🎙️ PTT</div>
-                        <div style="font-size:0.7rem;">HOLD TO TRANSMIT</div>
-                    </button>
-                    <div style="margin-top:10px; text-align:center;">
-                        <button onclick="initMic()" id="audioUnlockBtn" style="background:transparent; border:1px solid #555; color:#f59e0b; font-size:0.7rem; padding:5px; cursor:pointer; width:100%;">
+
+                    <div class="cmd-panel" id="cmdRadioTools">
+                        <button class="cmd-btn" onclick="clearChatter()">CLEAR SCREEN</button>
+                        <button class="cmd-btn" onclick="exportRadioLogs()">EXPORT LOGS</button>
+                        <button class="cmd-btn" onclick="addChannel()">+ CHANNEL</button>
+                    </div>
+
+                    <div class="control-deck">
+                        <button class="knob-btn" onclick="volUp()">🔊<br>+</button>
+                        <button class="knob-btn" onclick="volDown()">🔉<br>-</button>
+                        <button class="knob-btn" onclick="toggleMute()" id="btnMute">🔇<br>MUTE</button>
+                        <button class="knob-btn" onclick="configPtt()">🎧<br>SET PTT</button>
+                    </div>
+
+                    <div class="slider-group">
+                        <span>BRT</span> <input type="range" min="50" max="150" value="100" oninput="adjustScreen('brightness', this.value)">
+                        <span>CNT</span> <input type="range" min="50" max="150" value="100" oninput="adjustScreen('contrast', this.value)">
+                    </div>
+
+                    <button id="pttBtn" class="tactical-ptt">🎙️ PTT (HOLD)</button>
+                    
+                    <div style="margin-top:5px; text-align:center;">
+                        <button onclick="initMic()" id="audioUnlockBtn" style="background:transparent; border:1px solid #555; color:#f59e0b; font-size:0.6rem; padding:2px; cursor:pointer; width:100%;">
                             ⚠️ CLICK TO CONNECT AUDIO
                         </button>
                     </div>
+
+                    <div style="display:flex; gap:5px; margin-top:10px;">
+                        <input type="text" id="textInput" style="background:#000; color:#f59e0b; border:1px solid #444; padding:5px; flex:1; font-family:'Courier New';" placeholder="TXT...">
+                        <button onclick="sendText()" style="background:#444; color:#fff; border:none; padding:0 10px; cursor:pointer;">SEND</button>
+                    </div>
+                    
+                    <div id="channelList" style="display:flex; gap:2px; margin-top:5px; overflow-x:auto;">
+                        <button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>
+                    </div>
+
                 </div>
             </div>
-            <div id="map" style="flex:1;"></div>
         </div>
 
         <div class="bottom-deck">
@@ -360,8 +474,8 @@
                         <div style="margin-top:10px;"><label class="doc-label">Location / Asset ID</label><input type="text" id="repLocation" class="form-input" placeholder="e.g. 123 Main St OR Vehicle #404"></div>
                         <div style="margin-top:10px;"><label class="doc-label">Narrative / Details</label><textarea id="repNar" class="form-input" rows="6" placeholder="Describe the incident, inspection, or task details..."></textarea></div>
                         <div style="margin-top:15px; border-top:1px solid #334155; padding-top:10px;">
-                            <label class="doc-label">📎 Attachments (Photos, Video, Audio, Docs)</label>
-                            <label class="doc-upload-box"><span style="font-size:1.5rem;">📂</span><span>Click to Select Files</span><input type="file" id="repFiles" multiple style="display:none;" onchange="updateFileCount()"></label>
+                            <label class="doc-label">📎 Attachments</label>
+                            <label class="doc-upload-box"><span style="font-size:1.5rem;">📂</span><span>Select Files</span><input type="file" id="repFiles" multiple style="display:none;" onchange="updateFileCount()"></label>
                             <div id="fileCountMsg" style="font-size:0.8rem; color:#94a3b8; text-align:center;">No files selected</div>
                         </div>
                         <button class="btn btn-blue" style="width:100%; margin-top:10px;" id="btnSubmitRep" onclick="submitReport()">SUBMIT FOR APPROVAL</button>
@@ -381,7 +495,7 @@
 
     <script>
         window.onload = () => {
-            // FIX: CHECK SESSION FIRST TO PREVENT LOGOUT
+            // AUTH CHECK (Persistence)
             if(sb) {
                 sb.auth.getSession().then(({ data: { session } }) => {
                     if (session) {
@@ -402,12 +516,39 @@
             else { console.warn("Socket.io not loaded."); document.getElementById('gpsIndicator').innerText = "SOCKET OFFLINE"; }
         };
 
+        // --- RADIO CONTROLS ---
+        function adjustScreen(prop, val) {
+            const screen = document.getElementById('radioScreen');
+            if(prop === 'brightness') screen.style.filter = `brightness(${val}%) contrast(${document.querySelector('input[oninput*="contrast"]').value}%)`;
+            if(prop === 'contrast') screen.style.filter = `contrast(${val}%) brightness(${document.querySelector('input[oninput*="brightness"]').value}%)`;
+        }
+
+        function volUp() {
+            if(masterGain.gain.value < 2) masterGain.gain.value += 0.2;
+            alert("Vol: " + Math.round(masterGain.gain.value * 100) + "%");
+        }
+
+        function volDown() {
+            if(masterGain.gain.value > 0.2) masterGain.gain.value -= 0.2;
+            alert("Vol: " + Math.round(masterGain.gain.value * 100) + "%");
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            masterGain.gain.value = isMuted ? 0 : 1;
+            document.getElementById('btnMute').style.color = isMuted ? "red" : "#aaa";
+        }
+
+        function configPtt() {
+            alert("To use Hardware PTT: Map your button to 'Spacebar' in your OS settings. The app listens for Spacebar.");
+        }
+
+        // --- EXISTING LOGIC (Minified for brevity but intact) ---
         async function fetchProfile(uid, email) {
             let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
             if (!profile) { await sb.from('profiles').insert([{ id: uid, email: email, full_name: "Officer", role: "Unassigned" }]); const res = await sb.from('profiles').select('*').eq('id', uid).single(); profile = res.data; }
             if(profile) {
                 currentUser = profile;
-                // Dash
                 document.getElementById('dashName').innerText = "Officer: " + (profile.full_name || "Unknown");
                 document.getElementById('dashRole').innerText = "Role: " + (profile.role || "Unassigned");
                 document.getElementById('profName').value = profile.full_name || "";
@@ -429,7 +570,6 @@
                 if(profile.doc_force) document.getElementById('prevForce').innerText = "✅ Uploaded";
                 if(profile.doc_other) document.getElementById('prevOther').innerText = "✅ Uploaded";
 
-                // COMMAND POWERS
                 if(['Admin','Command','Dispatch'].includes(profile.role)) {
                     document.getElementById('commandLinks').style.display = 'block';
                     document.getElementById('cmdRadioTools').style.display = 'block';
@@ -456,13 +596,10 @@
             }
         }
 
-        // --- RADIO ENHANCED ---
         async function loadChannels() {
             const { data } = await sb.from('radio_channels').select('*');
             const list = document.getElementById('channelList');
-            // Keep Main, clear rest
             list.innerHTML = `<button onclick="changeChannel('MAIN')" class="chan-btn active-chan" id="btnMain">MAIN</button>`;
-            
             if(data) {
                 data.forEach(c => {
                     if(c.name === 'MAIN') return;
@@ -479,7 +616,7 @@
         }
 
         function clearChatter() {
-            if(!confirm("Clear chat view? (This does not delete logs from database)")) return;
+            if(!confirm("Clear chat view?")) return;
             document.getElementById('chatArea').innerHTML = '';
         }
 
@@ -494,114 +631,11 @@
             a.click();
         }
 
-        // --- REPORT SYSTEM ---
-        async function loadReportConfig() {
-            let { data } = await sb.from('app_config').select('value').eq('key', 'report_config').single();
-            if(!data) {
-                reportConfig = {
-                    toc: ["ATM Escort", "Alarm Response", "Patrol", "Incident", "Other"],
-                    internal: ["Vehicle Check", "Gear Check", "Other"]
-                };
-            } else { reportConfig = data.value; }
-            updateReportTypes();
-        }
-
-        function updateReportTypes() {
-            const cat = document.getElementById('repCategory').value;
-            const sel = document.getElementById('repType');
-            sel.innerHTML = '';
-            if(currentUser && (currentUser.role === 'Dispatch' || currentUser.role === 'Command')) {
-                const opt = document.createElement('option'); opt.value = "Dispatch Report"; opt.innerText = "*** DISPATCH REPORT ***"; sel.appendChild(opt);
-            }
-            if(currentUser && currentUser.role === 'Command') {
-                const opt = document.createElement('option'); opt.value = "Command Report"; opt.innerText = "*** COMMAND REPORT ***"; sel.appendChild(opt);
-            }
-            if(reportConfig && reportConfig[cat]) {
-                reportConfig[cat].forEach(type => {
-                    const opt = document.createElement('option'); opt.value = type; opt.innerText = type; sel.appendChild(opt);
-                });
-            }
-        }
-
-        function updateFileCount() {
-            const input = document.getElementById('repFiles');
-            const count = input.files.length;
-            document.getElementById('fileCountMsg').innerText = count > 0 ? `✅ ${count} file(s) selected` : "No files selected";
-        }
-
-        async function submitReport() {
-            const btn = document.getElementById('btnSubmitRep');
-            btn.innerText = "UPLOADING..."; btn.disabled = true;
-
-            const cat = document.getElementById('repCategory').value;
-            const type = document.getElementById('repType').value;
-            const loc = document.getElementById('repLocation').value;
-            const nar = document.getElementById('repNar').value;
-            const fileInput = document.getElementById('repFiles');
-
-            if(!nar) { alert("Please enter narrative."); btn.innerText = "SUBMIT"; btn.disabled = false; return; }
-
-            // Upload Files
-            let attachmentUrls = [];
-            if(fileInput.files.length > 0) {
-                for(let i=0; i<fileInput.files.length; i++) {
-                    const file = fileInput.files[i];
-                    const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
-                    const { data, error } = await sb.storage.from('report_files').upload(fileName, file);
-                    if(!error) {
-                        const { data: publicData } = sb.storage.from('report_files').getPublicUrl(fileName);
-                        attachmentUrls.push(publicData.publicUrl);
-                    }
-                }
-            }
-
-            // Submit Report
-            await sb.from('field_reports').insert([{ 
-                officer_name: currentUser.full_name, 
-                category: cat,
-                incident_type: type, 
-                location: loc, 
-                narrative: nar,
-                status: 'Pending',
-                attachments: attachmentUrls
-            }]);
-            
-            alert("Report Submitted.");
-            document.getElementById('repNar').value = "";
-            document.getElementById('repFiles').value = "";
-            updateFileCount();
-            btn.innerText = "SUBMIT FOR APPROVAL"; btn.disabled = false;
-            loadReportHistory(); loadStats(currentUser.full_name);
-        }
-
-        async function loadReportHistory() {
-            let query = sb.from('field_reports').select('*').order('created_at', { ascending: false });
-            if(currentUser.role !== 'Command' && currentUser.role !== 'Dispatch') query = query.eq('officer_name', currentUser.full_name);
-            const { data } = await query;
-            const div = document.getElementById('reportHistoryList');
-            div.innerHTML = '';
-            if(data && data.length > 0) {
-                data.forEach(r => {
-                    let stClass = 'rep-status-pending';
-                    if(r.status === 'Approved') stClass = 'rep-status-approved';
-                    if(r.status === 'Rejected') stClass = 'rep-status-rejected';
-                    
-                    let attachHtml = '';
-                    if(r.attachments && r.attachments.length > 0) {
-                        attachHtml = '<div class="file-list">Attachments: ';
-                        r.attachments.forEach((url, idx) => {
-                            attachHtml += `<a href="${url}" target="_blank" class="file-link">File ${idx+1}</a>`;
-                        });
-                        attachHtml += '</div>';
-                    }
-
-                    const html = `<div class="rep-item"><div style="display:flex; justify-content:space-between;"><div style="font-weight:bold;">${r.incident_type}</div><div class="${stClass}">${r.status}</div></div><div style="font-size:0.8rem; color:#94a3b8;">${new Date(r.created_at).toLocaleString()} | ${r.location || 'No Loc'}</div><div style="font-size:0.8rem; color:#ccc; margin-top:5px;">${r.narrative.substring(0, 50)}...</div>${attachHtml}${r.admin_notes ? `<div style="font-size:0.7rem; color:${stClass}; margin-top:5px;">Note: ${r.admin_notes}</div>` : ''}</div>`;
-                    div.innerHTML += html;
-                });
-            } else div.innerHTML = '<div style="padding:15px; color:#64748b;">No reports found.</div>';
-        }
-
-        // --- EXISTING LOGIC ---
+        async function loadReportConfig() { let { data } = await sb.from('app_config').select('value').eq('key', 'report_config').single(); if(!data) { reportConfig = { toc: ["ATM Escort", "Alarm Response", "Patrol", "Incident", "Other"], internal: ["Vehicle Check", "Gear Check", "Other"] }; } else { reportConfig = data.value; } updateReportTypes(); }
+        function updateReportTypes() { const cat = document.getElementById('repCategory').value; const sel = document.getElementById('repType'); sel.innerHTML = ''; if(currentUser && (currentUser.role === 'Dispatch' || currentUser.role === 'Command')) { const opt = document.createElement('option'); opt.value = "Dispatch Report"; opt.innerText = "*** DISPATCH REPORT ***"; sel.appendChild(opt); } if(currentUser && currentUser.role === 'Command') { const opt = document.createElement('option'); opt.value = "Command Report"; opt.innerText = "*** COMMAND REPORT ***"; sel.appendChild(opt); } if(reportConfig && reportConfig[cat]) { reportConfig[cat].forEach(type => { const opt = document.createElement('option'); opt.value = type; opt.innerText = type; sel.appendChild(opt); }); } }
+        function updateFileCount() { const input = document.getElementById('repFiles'); const count = input.files.length; document.getElementById('fileCountMsg').innerText = count > 0 ? `✅ ${count} file(s) selected` : "No files selected"; }
+        async function submitReport() { const btn = document.getElementById('btnSubmitRep'); btn.innerText = "UPLOADING..."; btn.disabled = true; const cat = document.getElementById('repCategory').value; const type = document.getElementById('repType').value; const loc = document.getElementById('repLocation').value; const nar = document.getElementById('repNar').value; const fileInput = document.getElementById('repFiles'); if(!nar) { alert("Please enter narrative."); btn.innerText = "SUBMIT"; btn.disabled = false; return; } let attachmentUrls = []; if(fileInput.files.length > 0) { for(let i=0; i<fileInput.files.length; i++) { const file = fileInput.files[i]; const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`; const { data, error } = await sb.storage.from('report_files').upload(fileName, file); if(!error) { const { data: publicData } = sb.storage.from('report_files').getPublicUrl(fileName); attachmentUrls.push(publicData.publicUrl); } } } await sb.from('field_reports').insert([{ officer_name: currentUser.full_name, category: cat, incident_type: type, location: loc, narrative: nar, status: 'Pending', attachments: attachmentUrls }]); alert("Report Submitted."); document.getElementById('repNar').value = ""; document.getElementById('repFiles').value = ""; updateFileCount(); btn.innerText = "SUBMIT FOR APPROVAL"; btn.disabled = false; loadReportHistory(); loadStats(currentUser.full_name); }
+        async function loadReportHistory() { let query = sb.from('field_reports').select('*').order('created_at', { ascending: false }); if(currentUser.role !== 'Command' && currentUser.role !== 'Dispatch') query = query.eq('officer_name', currentUser.full_name); const { data } = await query; const div = document.getElementById('reportHistoryList'); div.innerHTML = ''; if(data && data.length > 0) { data.forEach(r => { let stClass = 'rep-status-pending'; if(r.status === 'Approved') stClass = 'rep-status-approved'; if(r.status === 'Rejected') stClass = 'rep-status-rejected'; let attachHtml = ''; if(r.attachments && r.attachments.length > 0) { attachHtml = '<div class="file-list">Attachments: '; r.attachments.forEach((url, idx) => { attachHtml += `<a href="${url}" target="_blank" class="file-link">File ${idx+1}</a>`; }); attachHtml += '</div>'; } const html = `<div class="rep-item"><div style="display:flex; justify-content:space-between;"><div style="font-weight:bold;">${r.incident_type}</div><div class="${stClass}">${r.status}</div></div><div style="font-size:0.8rem; color:#94a3b8;">${new Date(r.created_at).toLocaleString()} | ${r.location || 'No Loc'}</div><div style="font-size:0.8rem; color:#ccc; margin-top:5px;">${r.narrative.substring(0, 50)}...</div>${attachHtml}${r.admin_notes ? `<div style="font-size:0.7rem; color:${stClass}; margin-top:5px;">Note: ${r.admin_notes}</div>` : ''}</div>`; div.innerHTML += html; }); } else div.innerHTML = '<div style="padding:15px; color:#64748b;">No reports found.</div>'; }
         async function loadSchedule() { const { data } = await sb.from('schedule_shifts').select('*').order('start_time', { ascending: true }); const myDiv = document.getElementById('myScheduleList'); const openDiv = document.getElementById('openScheduleList'); const tradeDiv = document.getElementById('tradeScheduleList'); myDiv.innerHTML = ''; openDiv.innerHTML = ''; tradeDiv.innerHTML = ''; let hasMy = false; let hasOpen = false; let hasTrade = false; if(data) { data.forEach(s => { const html = `<div class="job-card ${s.status === 'Open' ? 'open' : (s.is_trade_requested ? 'trade' : '')}"><div class="job-header"><div class="job-title">${s.job_title}</div><div style="font-size:0.8rem;">${new Date(s.start_time).toLocaleDateString()}</div></div><div class="job-detail">📍 ${s.location} (${s.client_name})</div><div class="job-detail">⏰ ${new Date(s.start_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} - ${new Date(s.end_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div class="job-detail">👤 POC: ${s.poc_info || 'N/A'}</div><div class="job-detail">📝 Orders: ${s.post_orders || 'Standard'}</div><div class="job-detail">📋 Reports: ${s.req_reports || 'Incident, Daily'}</div>${s.assigned_to === currentUser.full_name ? `<button class="btn btn-red" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="requestReassignment('${s.id}')">Request Reassignment</button><div class="job-alert">⚠ 48hr Notice Required. No Guarantee.</div>` : ''}${s.status === 'Open' ? `<button class="btn btn-green" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="claimShift('${s.id}')">Claim Shift</button>` : ''}${s.is_trade_requested && s.assigned_to !== currentUser.full_name ? `<button class="btn btn-blue" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="claimShift('${s.id}')">Accept Trade</button>` : ''}</div>`; if(s.assigned_to === currentUser.full_name) { myDiv.innerHTML += html; hasMy = true; } else if(s.status === 'Open') { openDiv.innerHTML += html; hasOpen = true; } else if(s.is_trade_requested) { tradeDiv.innerHTML += html; hasTrade = true; } }); } if(!hasMy) myDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No assigned shifts.</div>'; if(!hasOpen) openDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No open shifts.</div>'; if(!hasTrade) tradeDiv.innerHTML = '<div style="padding:10px; color:#64748b;">No trades posted.</div>'; }
         async function requestReassignment(id) { if(!confirm("Warning: Requesting reassignment does not guarantee approval. You are responsible for this shift until notified otherwise. Proceed?")) return; await sb.from('schedule_shifts').update({ is_trade_requested: true }).eq('id', id); alert("Request Submitted."); loadSchedule(); }
         async function claimShift(id) { if(!confirm("Confirm shift acceptance?")) return; await sb.from('schedule_shifts').update({ status: 'Assigned', assigned_to: currentUser.full_name, is_trade_requested: false }).eq('id', id); alert("Shift Assigned to You."); loadSchedule(); }
@@ -621,8 +655,25 @@
         function playSound(type) { if(audioCtx.state === 'suspended') audioCtx.resume(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); osc.frequency.setValueAtTime(type==='ptt-on'?600:800, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
         function addLog(n, m, v, s) { const d = document.createElement('div'); d.className = 'chat-msg'; if(v) { d.innerHTML = `<div><b>${n}</b> <span style="font-size:0.8em; color:#999;">${new Date().toLocaleTimeString()}</span></div>`; if(s && typeof s === 'string' && s.startsWith('data:audio')) { const playBtn = document.createElement('button'); playBtn.innerText = "▶ PLAY"; playBtn.style.cssText = "background:#333; border:1px solid #555; color:#0f0; margin-top:5px; cursor:pointer; padding:2px 8px; border-radius:4px;"; playBtn.onclick = () => { const sound = new Audio(s); sound.play().catch(e => console.error("Play error", e)); }; d.appendChild(playBtn); } else { d.innerHTML += " <i style='color:#666;'>(Audio unavailable)</i>"; } } else { d.innerHTML = `<b>${n}</b>: ${m}`; } const area = document.getElementById('chatArea'); area.appendChild(d); area.scrollTop = area.scrollHeight; }
         function sendText() { const msg = document.getElementById('textInput').value; if(currentUser && socket && msg) { socket.emit('radio-text', {name:currentUser.full_name, msg, channel: currentChannel, lat:0, lng:0}); document.getElementById('textInput').value=''; } }
-        function changeChannel(ch) { if (ch === 'LOUNGE' && isDispatched) return alert("ACCESS DENIED"); currentChannel = ch; if(socket) socket.emit('join-channel', ch); document.getElementById('lcdChannel').innerText = ch; document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan')); if(ch==='MAIN') document.getElementById('btnMain').classList.add('active-chan'); if(ch==='TAC-1') document.getElementById('btnTac1').classList.add('active-chan'); if(ch==='LOUNGE') document.getElementById('btnLounge').classList.add('active-chan'); }
-        const pttBtn = document.getElementById('pttBtn'); pttBtn.onmousedown = pttBtn.ontouchstart = async (e) => { e.preventDefault(); try { await initMic(); if (mediaRecorder.state === 'inactive') { playSound('ptt-on'); mediaRecorder.start(); pttBtn.classList.add('transmitting'); document.getElementById('lcdStatus').innerText = "TX..."; document.getElementById('lcdStatus').style.color = "red"; } } catch(e) { console.error("PTT Fail", e); } }; pttBtn.onmouseup = pttBtn.ontouchend = (e) => { e.preventDefault(); if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); playSound('ptt-off'); pttBtn.classList.remove('transmitting'); document.getElementById('lcdStatus').innerText = "STANDBY"; document.getElementById('lcdStatus').style.color = "#00ff00"; } };
+        function changeChannel(ch) { if (ch === 'LOUNGE' && isDispatched) return alert("ACCESS DENIED"); currentChannel = ch; if(socket) socket.emit('join-channel', ch); document.getElementById('lcdChannel').innerText = ch; document.querySelectorAll('.chan-btn').forEach(b => b.classList.remove('active-chan')); if(document.getElementById('btn'+ch)) document.getElementById('btn'+ch).classList.add('active-chan'); }
+        const pttBtn = document.getElementById('pttBtn'); 
+        
+        // PTT KEYBIND LISTENER (Spacebar)
+        document.addEventListener('keydown', async (e) => {
+            if(e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                if(mediaRecorder?.state === 'inactive') {
+                    try { await initMic(); playSound('ptt-on'); mediaRecorder.start(); pttBtn.classList.add('transmitting'); document.getElementById('lcdStatus').innerText = "TX..."; document.getElementById('lcdStatus').style.color = "red"; } catch(e) {}
+                }
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            if(e.code === 'Space') {
+                if(mediaRecorder?.state === 'recording') { mediaRecorder.stop(); playSound('ptt-off'); pttBtn.classList.remove('transmitting'); document.getElementById('lcdStatus').innerText = "STANDBY"; document.getElementById('lcdStatus').style.color = "#00ff00"; }
+            }
+        });
+
+        pttBtn.onmousedown = pttBtn.ontouchstart = async (e) => { e.preventDefault(); try { await initMic(); if (mediaRecorder.state === 'inactive') { playSound('ptt-on'); mediaRecorder.start(); pttBtn.classList.add('transmitting'); document.getElementById('lcdStatus').innerText = "TX..."; document.getElementById('lcdStatus').style.color = "red"; } } catch(e) { console.error("PTT Fail", e); } }; pttBtn.onmouseup = pttBtn.ontouchend = (e) => { e.preventDefault(); if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); playSound('ptt-off'); pttBtn.classList.remove('transmitting'); document.getElementById('lcdStatus').innerText = "STANDBY"; document.getElementById('lcdStatus').style.color = "#00ff00"; } };
         async function loadRadioHistory() { try { const res = await fetch('/api/radio-history'); const logs = await res.json(); logs.forEach(l => addLog(l.sender, l.message, l.is_voice, l.audio_data)); } catch(e) {} }
         async function createTicket() { const desc = document.getElementById('tickDesc').value; await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:null, type:'General', priority:'Normal', description:desc }) }); loadTickets(); }
         async function addClient() { const name = document.getElementById('cliName').value; await fetch('/api/clients', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, phone:'-', address:'-' }) }); loadClients(); }
