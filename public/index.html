@@ -20,7 +20,8 @@
         let audioChunks = [];
         let currentChannel = 'MAIN';
         let isClockedIn = false; 
-        let isIdle = false; // Track Idle State
+        let isIdle = false; 
+        let isDispatched = false; // FIXED: Added back missing variable
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = audioCtx.createGain(); 
         masterGain.connect(audioCtx.destination);
@@ -28,9 +29,9 @@
         // MAP GLOBALS
         let myMarker = null; 
         let myAccuracy = null;
-        let myPathLine = null; // GPS Trail
-        let pathCoords = []; // Breadcrumbs
-        let geofenceLayers = []; // Zones
+        let myPathLine = null; 
+        let pathCoords = [];   
+        let geofenceLayers = []; 
 
         let reportConfig = null;
         let isMuted = false;
@@ -41,10 +42,10 @@
 
         try { 
             sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
-            console.log("Supabase Init Success");
+            console.log("Supabase Client Init Success");
         } catch (e) { 
             console.error("Init Error:", e); 
-            alert("Database Error: Check Console");
+            alert("CRITICAL ERROR: Could not connect to Database.");
         }
 
         // --- AUTH ---
@@ -54,16 +55,33 @@
         }
 
         async function handleLogin() {
+            if (!sb) return alert("System Error: Database not connected. Reload page.");
+            
             const btn = document.getElementById('btnLoginBtn');
-            btn.innerText = "AUTHENTICATING..."; btn.disabled = true;
+            const originalText = btn.innerText;
+            btn.innerText = "AUTHENTICATING...";
+            btn.disabled = true;
 
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            
-            const { error } = await sb.auth.signInWithPassword({ email, password });
-            if(error) {
-                alert("Login Failed: " + error.message);
-                btn.innerText = "AUTHENTICATE"; btn.disabled = false;
+
+            try {
+                const { data, error } = await sb.auth.signInWithPassword({ email, password });
+                
+                if(error) {
+                    alert("Login Failed: " + error.message);
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                } else {
+                    console.log("Auth Success");
+                    document.getElementById('authModal').style.display = 'none';
+                    // Fetch profile manually to ensure load
+                    if(data.user) fetchProfile(data.user.id, data.user.email);
+                }
+            } catch (e) {
+                alert("Login Error: " + e.message);
+                btn.innerText = originalText;
+                btn.disabled = false;
             }
         }
 
@@ -72,7 +90,7 @@
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) alert(error.message); else alert("Applied.");
+            if(error) alert(error.message); else alert("Application Submitted. You may log in.");
         }
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
@@ -82,16 +100,14 @@
             if(!currentUser) return;
             
             if(!isClockedIn) {
-                // CLOCK IN
                 if(confirm("Start Shift?")) {
                     await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'in', officer_name: currentUser.full_name, role: currentUser.role }) });
                     isClockedIn = true;
-                    isIdle = false; 
+                    isIdle = false;
                     updateAccessLevel();
                     await sb.from('profiles').update({ current_status: 'Active', last_active: new Date() }).eq('id', currentUser.id);
                 }
             } else {
-                // CLOCK OUT
                 if(confirm("End Shift? You will be restricted to Off-Duty areas.")) {
                     await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'out', officer_name: currentUser.full_name }) });
                     isClockedIn = false;
@@ -120,7 +136,7 @@
             }
             
             await sb.from('profiles').update({ current_status: status }).eq('id', currentUser.id);
-            updateAccessLevel(); 
+            updateAccessLevel();
         }
 
         function updateAccessLevel() {
@@ -175,7 +191,7 @@
         .radio-silo { width: 360px; background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-left: 4px solid #333; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.5); padding: 10px; }
         .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; box-shadow: inset 0 0 20px #000; display: flex; flex-direction: column; height: 100%; }
         .radio-screen-container { background: #000; padding: 5px; border-radius: 8px; border: 1px solid #555; margin-bottom: 10px; box-shadow: inset 0 0 10px #000; }
-        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; transition: all 0.2s; }
+        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; border: 1px solid #555; }
         .radio-header { border-bottom: 2px dashed #550f0f; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         .chat-log { flex: 1; overflow-y: auto; font-size: 0.8rem; }
         .control-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px solid #333; }
@@ -271,13 +287,13 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v26.0 FINAL FIX</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v27.0 FIXED</div>
         </div>
         
         <div class="nav-cat">My Station</div>
         <button class="nav-btn active" onclick="showTab('dashboard')"><span>📊</span> Dashboard</button>
         <button class="nav-btn" onclick="showTab('profile')"><span>🪪</span> Personnel File</button>
-        <button class="nav-btn" onclick="showTab('team')"><span>👥</span> My Team</button>
+        <button class="nav-btn" onclick="showTab('team')"><span>👥</span> My Team (Org)</button>
         <button class="nav-btn" onclick="showTab('setup')"><span>🎨</span> Personal Setup</button>
         <button class="nav-btn" onclick="showTab('timesheet')"><span>⏱️</span> Timesheet</button>
         <button class="nav-btn" onclick="showTab('apps')"><span>📱</span> Apps</button>
@@ -405,6 +421,10 @@
                             <div><label class="doc-label">Security License #</label><input type="text" id="profSecLicNum" class="form-input" disabled></div>
                             <div><label class="doc-label">Phone</label><input type="text" id="profPhone" class="form-input"></div>
                         </div>
+                        <div class="grid-2" style="margin-top:10px;">
+                            <div><label class="doc-label">Start Date</label><input type="date" id="profStart" class="form-input" disabled></div>
+                            <div><label class="doc-label">Termination Date</label><input type="date" id="profTerm" class="form-input" disabled></div>
+                        </div>
                         <button class="btn btn-blue" style="width:100%; margin-top:20px;" onclick="saveProfile()">SAVE CHANGES</button>
                     </div>
                 </div>
@@ -495,21 +515,23 @@
                     document.getElementById('dashName').innerText = "Officer: " + (profile.full_name || "Unknown");
                     document.getElementById('dashRole').innerText = "Role: " + (profile.role || "Unassigned");
                     
-                    // STATS (SAFE LOAD)
+                    // STATS (SAFE LOAD - Safety check added)
                     const totalAssign = (profile.stats_accepted || 0) + (profile.stats_refused || 0);
                     const refusalRatio = totalAssign > 0 ? ((profile.stats_refused / totalAssign) * 100).toFixed(1) + "%" : "0%";
-                    document.getElementById('stRefuse').innerText = refusalRatio;
-                    document.getElementById('stTrain').innerText = (profile.stats_training_hours || 0) + "h";
-                    document.getElementById('stIdle').innerText = (profile.stats_idle_hours || 0) + "h";
+                    if(document.getElementById('stRefuse')) document.getElementById('stRefuse').innerText = refusalRatio;
+                    if(document.getElementById('stTrain')) document.getElementById('stTrain').innerText = (profile.stats_training_hours || 0) + "h";
+                    if(document.getElementById('stIdle')) document.getElementById('stIdle').innerText = (profile.stats_idle_hours || 0) + "h";
 
-                    // OPS BREAKDOWN
+                    // OPS BREAKDOWN (SAFE LOAD)
                     const opsDiv = document.getElementById('opsBreakdown');
-                    opsDiv.innerHTML = '';
-                    if(profile.stats_ops_breakdown) {
-                        for (const [key, value] of Object.entries(profile.stats_ops_breakdown)) {
-                            opsDiv.innerHTML += `<div style="background:#333; padding:5px; border-radius:3px; margin:2px;">${key}: <b>${value}</b></div>`;
-                        }
-                    } else { opsDiv.innerText = "No operations recorded."; }
+                    if(opsDiv) {
+                        opsDiv.innerHTML = '';
+                        if(profile.stats_ops_breakdown) {
+                            for (const [key, value] of Object.entries(profile.stats_ops_breakdown)) {
+                                opsDiv.innerHTML += `<div style="background:#333; padding:5px; border-radius:3px; margin:2px;">${key}: <b>${value}</b></div>`;
+                            }
+                        } else { opsDiv.innerText = "No operations recorded."; }
+                    }
 
                     // PROFILE FORM - RESTRICTIONS
                     const isCommand = ['Admin','Command','Dispatch'].includes(profile.role);
