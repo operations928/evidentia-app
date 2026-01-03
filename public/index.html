@@ -20,18 +20,14 @@
         let audioChunks = [];
         let currentChannel = 'MAIN';
         let isClockedIn = false; 
-        let isIdle = false; // NEW: Track Idle State
+        let isIdle = false;
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = audioCtx.createGain(); 
         masterGain.connect(audioCtx.destination);
         
-        // MAP GLOBALS
         let myMarker = null; 
-        let myAccuracy = null;
-        let myPathLine = null; // GPS Trail
-        let pathCoords = []; // Breadcrumbs
-        let geofenceLayers = []; // Zones
-
+        let myPathLine = null; 
+        let pathCoords = []; 
         let reportConfig = null;
         let isMuted = false;
 
@@ -64,52 +60,30 @@
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
-        // --- CLOCK & IDLE LOGIC ---
+        // --- CLOCK LOGIC ---
         async function toggleShift() {
             if(!currentUser) return;
-            
             if(!isClockedIn) {
-                // CLOCK IN
                 if(confirm("Start Shift?")) {
                     await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'in', officer_name: currentUser.full_name, role: currentUser.role }) });
-                    isClockedIn = true;
-                    isIdle = false; // Default to Active
-                    updateAccessLevel();
+                    isClockedIn = true; isIdle = false; updateAccessLevel();
                     await sb.from('profiles').update({ current_status: 'Active', last_active: new Date() }).eq('id', currentUser.id);
                 }
             } else {
-                // CLOCK OUT
-                if(confirm("End Shift? You will be restricted to Off-Duty areas.")) {
+                if(confirm("End Shift? Ops Restricted.")) {
                     await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'out', officer_name: currentUser.full_name }) });
-                    isClockedIn = false;
-                    isIdle = false;
-                    updateAccessLevel();
+                    isClockedIn = false; isIdle = false; updateAccessLevel();
                     await sb.from('profiles').update({ current_status: 'Off Duty', last_active: new Date() }).eq('id', currentUser.id);
                 }
             }
         }
 
         async function toggleIdle() {
-            if(!isClockedIn) return alert("You must be clocked in.");
-            
+            if(!isClockedIn) return alert("Must be clocked in.");
             isIdle = !isIdle;
             const status = isIdle ? 'Idle' : 'Active';
-            
-            // UI Update
-            const btn = document.getElementById('btnIdle');
-            if(isIdle) {
-                btn.innerText = "RESUME DUTY (Go Active)";
-                btn.className = "btn btn-green";
-                document.getElementById('idleWarning').style.display = "block";
-            } else {
-                btn.innerText = "PAUSE (Go Idle)";
-                btn.className = "btn btn-orange";
-                document.getElementById('idleWarning').style.display = "none";
-            }
-            
-            // DB Update
             await sb.from('profiles').update({ current_status: status }).eq('id', currentUser.id);
-            updateAccessLevel(); // Refresh status text
+            updateAccessLevel();
         }
 
         function updateAccessLevel() {
@@ -120,29 +94,22 @@
             const fieldOps = document.getElementById('fieldOpsNav');
 
             if(isClockedIn) {
-                btnClock.innerText = "END SHIFT (Clock Out)";
-                btnClock.className = "btn btn-red";
-                btnIdle.style.display = "block"; // Show Idle button
-                
-                if(isIdle) {
+                btnClock.innerText = "END SHIFT (Clock Out)"; btnClock.className = "btn btn-red";
+                btnIdle.style.display = "block";
+                if(isIdle) { 
                     statusDiv.innerHTML = 'Status: <span style="color:var(--orange)">IDLE (PAUSED)</span>';
-                } else {
+                    btnIdle.innerText = "RESUME DUTY"; btnIdle.className = "btn btn-green";
+                } else { 
                     statusDiv.innerHTML = 'Status: <span style="color:var(--green)">ON DUTY</span>';
+                    btnIdle.innerText = "GO IDLE (Pause)"; btnIdle.className = "btn btn-orange";
                 }
-
-                opsMsg.style.display = 'none';
-                fieldOps.style.opacity = "1";
-                fieldOps.style.pointerEvents = "auto";
+                opsMsg.style.display = 'none'; fieldOps.style.opacity = "1"; fieldOps.style.pointerEvents = "auto";
                 changeChannel('MAIN'); 
             } else {
-                btnClock.innerText = "START SHIFT (Clock In)";
-                btnClock.className = "btn btn-green";
-                btnIdle.style.display = "none"; // Hide Idle button
-                
+                btnClock.innerText = "START SHIFT (Clock In)"; btnClock.className = "btn btn-green";
+                btnIdle.style.display = "none";
                 statusDiv.innerHTML = 'Status: <span style="color:gray">OFF DUTY</span>';
-                opsMsg.style.display = 'block';
-                fieldOps.style.opacity = "0.4";
-                fieldOps.style.pointerEvents = "none";
+                opsMsg.style.display = 'block'; fieldOps.style.opacity = "0.4"; fieldOps.style.pointerEvents = "none";
                 changeChannel('LOUNGE');
             }
         }
@@ -160,7 +127,6 @@
         .bottom-deck { flex: 1; display: flex; overflow: hidden; }
         #map { flex: 1; z-index: 1; }
         
-        /* RADIO UI */
         .radio-silo { width: 360px; background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-left: 4px solid #333; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.5); padding: 10px; }
         .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; box-shadow: inset 0 0 20px #000; display: flex; flex-direction: column; height: 100%; }
         .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; border: 1px solid #555; }
@@ -180,7 +146,6 @@
             .menu-toggle { display: block !important; }
         }
 
-        /* GENERAL UI */
         .workspace { flex: 1; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
         .nav-cat { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 15px 0 5px 15px; font-weight: bold; }
         .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; display: flex; gap: 10px; transition: 0.2s; font-size: 0.95rem; }
@@ -192,33 +157,25 @@
         .form-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; margin-bottom: 10px; }
         .form-input:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; border: 1px solid #475569; }
         .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
-        .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); }
-        .btn-orange { background: var(--orange); color: black; }
+        .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); } .btn-orange { background: var(--orange); color: black; }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
         
         .stat-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; text-align: center; }
         .stat-val { font-size: 1.2rem; font-weight: bold; color: white; }
         .stat-lbl { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; }
-        .chat-msg { padding: 2px 0; border-bottom: 1px solid rgba(255,69,0,0.2); font-size: 0.8rem; }
-        
         .menu-toggle { display: none; position: absolute; top: 10px; left: 10px; z-index: 1000; background: var(--panel); border: 1px solid #334155; padding: 8px; border-radius: 4px; color: white; cursor: pointer; }
         
         .chan-btn { flex: 1; min-width: 40px; background:#333; border:1px solid #555; color:#aaa; padding:4px; cursor:pointer; font-weight:bold; font-size:0.6rem; white-space: nowrap; }
         .active-chan { background: var(--green); color:black; border-color:var(--green); box-shadow:0 0 10px var(--green); }
-        .dm-btn { background: #3b82f6; border: none; color: white; border-radius: 3px; font-size: 0.6rem; padding: 2px 5px; cursor: pointer; margin-left: 5px; }
         .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .dot-green { background-color: #10b981; } .dot-gray { background-color: #64748b; } .dot-orange { background-color: #f59e0b; }
         
-        /* COMMAND TOOLS */
         .cmd-panel { background: #200; border-top: 1px solid #500; padding: 5px; display: none; text-align: center; margin-top: 5px; }
         .cmd-btn { background: #600; border: 1px solid #800; color: #fab; padding: 2px 6px; font-size: 0.6rem; cursor: pointer; margin: 1px; }
         
-        /* SCHEDULER & DOCS */
         .job-card { border-left: 4px solid var(--accent); background: rgba(255,255,255,0.03); padding: 15px; margin-bottom: 15px; border-radius: 4px; }
-        .job-card.trade { border-left-color: var(--orange); } .job-card.open { border-left-color: var(--green); }
         .doc-upload-box { border: 2px dashed #475569; padding: 15px; text-align: center; margin-bottom: 10px; border-radius: 6px; cursor: pointer; position: relative; }
-        .doc-label { font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 5px; display: block; text-align: left; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .ts-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         .ts-table th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 8px; }
@@ -254,7 +211,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v21.0 ADVANCED</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v22.0 ROLE DASHBOARDS</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -331,39 +288,41 @@
         <div class="bottom-deck">
             <div class="workspace">
                 
-                <div id="opsRestrictedMsg" style="display:none; background:#ef4444; color:white; text-align:center; padding:10px; font-weight:bold;">
-                    ⚠️ OFF DUTY MODE: FIELD OPS LOCKED. RADIO RESTRICTED.
-                </div>
+                <div id="opsRestrictedMsg" style="display:none; background:#ef4444; color:white; text-align:center; padding:10px; font-weight:bold;">⚠️ OFF DUTY MODE: FIELD OPS LOCKED. RADIO RESTRICTED.</div>
 
                 <div id="tab-dashboard" class="tab-content active-tab">
                     <h2>Mission Dashboard</h2>
+                    
                     <div class="card">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <h3 id="shiftStatus">Status: <span style="color:gray">OFFLINE</span></h3>
                             <div id="gpsIndicator" style="font-size:0.7rem; color:red;">GPS: SEARCHING</div>
                         </div>
                         <p id="dashName">Officer: Loading...</p>
-                        
-                        <div id="idleWarning" style="display:none; background:rgba(255,165,0,0.1); border:1px solid orange; padding:10px; border-radius:5px; margin:10px 0; font-size:0.8rem; color:orange;">
-                            ⚠ IDLE MODE: TIME IS UNPAID unless assigned to an active Shift.
-                        </div>
-
                         <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin:15px 0;">
                             <div class="stat-box"><div class="stat-val" id="stIdle">0h</div><div class="stat-lbl">IDLE</div></div>
                             <div class="stat-box"><div class="stat-val" id="stTrain">0h</div><div class="stat-lbl">TRAINING</div></div>
                             <div class="stat-box"><div class="stat-val" id="stAvgOp">0m</div><div class="stat-lbl">AVG OPS</div></div>
                             <div class="stat-box"><div class="stat-val" id="stRefuse">0%</div><div class="stat-lbl">REFUSAL</div></div>
                         </div>
-                        
-                        <div class="card" style="margin-top:10px; background:#111;">
-                            <h4 style="margin:0 0 10px 0; font-size:0.9rem; color:#aaa;">Operations Covered</h4>
-                            <div id="opsBreakdown" style="font-size:0.8rem; display:flex; flex-wrap:wrap; gap:10px;">Loading...</div>
-                        </div>
-
-                        <div class="grid-2" style="margin-top:15px;">
+                        <div class="grid-2">
                             <button id="btnIdle" class="btn btn-orange" style="display:none;" onclick="toggleIdle()">PAUSE (Go Idle)</button>
                             <button id="btnClock" class="btn btn-green" style="width:100%;" onclick="toggleShift()">START SHIFT (Clock In)</button>
                         </div>
+                    </div>
+
+                    <div id="cmdDash" class="card" style="display:none; border-left: 4px solid var(--orange);">
+                        <h3 style="color:var(--orange);">COMMAND OVERWATCH (Live Units)</h3>
+                        <div id="cmdUnitList" style="font-size:0.85rem;">Loading Units...</div>
+                    </div>
+
+                    <div id="dspDash" class="card" style="display:none; border-left: 4px solid var(--accent);">
+                        <h3 style="color:var(--accent);">DISPATCH CONSOLE</h3>
+                        <div style="display:flex; gap:10px; margin-bottom:10px;">
+                            <input type="text" id="dspQuickTask" class="form-input" placeholder="Quick Task: e.g. 10-33 Alarm at Bank...">
+                            <button class="btn btn-blue" onclick="quickDispatch()">BROADCAST</button>
+                        </div>
+                        <div id="dspPendingList">Loading active calls...</div>
                     </div>
                 </div>
 
@@ -386,27 +345,9 @@
                 <div id="tab-team" class="tab-content"><h2>My Team</h2><div class="card" id="orgChartContainer">Loading...</div></div>
                 <div id="tab-setup" class="tab-content"><h2>Setup</h2><div class="card">Settings...</div></div>
                 <div id="tab-timesheet" class="tab-content"><h2>Timesheet</h2><div class="card">History...</div></div>
-                
-                <div id="tab-schedule" class="tab-content">
-                    <h2>Scheduled Operations</h2>
-                    <div class="card"><h3>My Assigned Shifts</h3><div id="myScheduleList">Loading...</div></div>
-                    <div class="card" style="border-left: 4px solid var(--green);"><h3>Open Shifts</h3><div id="openScheduleList">Loading...</div></div>
-                    <div class="card" style="border-left: 4px solid var(--orange);"><h3>Trades</h3><div id="tradeScheduleList">Loading...</div></div>
-                </div>
-
+                <div id="tab-schedule" class="tab-content"><h2>Schedule</h2><div class="card"><div id="myScheduleList"></div><div id="openScheduleList"></div></div></div>
                 <div id="tab-tasks" class="tab-content"><h2>Tasks</h2><div class="card"><table class="ts-table"><tbody id="taskListBody"></tbody></table></div></div>
-                
-                <div id="tab-reports" class="tab-content">
-                    <h2>Report Writer</h2>
-                    <div class="card">
-                        <div class="grid-2"><div><label>Category</label><select id="repCategory" class="form-input" onchange="updateReportTypes()"><option value="toc">TOC</option><option value="internal">Internal</option></select></div><div><label>Type</label><select id="repType" class="form-input"></select></div></div>
-                        <textarea id="repNar" class="form-input" rows="4" placeholder="Narrative"></textarea>
-                        <input type="file" id="repFiles" multiple>
-                        <button class="btn btn-blue" onclick="submitReport()">Submit</button>
-                    </div>
-                    <div class="card" id="reportHistoryList"></div>
-                </div>
-
+                <div id="tab-reports" class="tab-content"><h2>Report Writer</h2><div class="card"><div class="grid-2"><div><label>Category</label><select id="repCategory" class="form-input" onchange="updateReportTypes()"><option value="toc">TOC</option><option value="internal">Internal</option></select></div><div><label>Type</label><select id="repType" class="form-input"></select></div></div><textarea id="repNar" class="form-input" rows="4" placeholder="Narrative"></textarea><input type="file" id="repFiles" multiple><button class="btn btn-blue" onclick="submitReport()">Submit</button></div><div class="card" id="reportHistoryList"></div></div>
                 <div id="tab-staff" class="tab-content"><h2>Staff</h2><div class="card" id="staffList">Loading...</div></div>
                 <div id="tab-tickets" class="tab-content"><h2>Tickets</h2><div class="card">Loading...</div></div>
                 <div id="tab-clients" class="tab-content"><h2>Clients</h2><div class="card">Loading...</div></div>
@@ -452,7 +393,7 @@
                     currentUser = profile;
                     
                     // STATUS CHECK
-                    if(profile.current_status === 'Active') { isClockedIn = true; isIdle = false; }
+                    if(profile.current_status === 'Active' || profile.current_status === 'On Duty') { isClockedIn = true; isIdle = false; }
                     else if(profile.current_status === 'Idle') { isClockedIn = true; isIdle = true; }
                     else { isClockedIn = false; isIdle = false; }
                     updateAccessLevel();
@@ -466,26 +407,28 @@
                     document.getElementById('stTrain').innerText = (profile.stats_training_hours || 0) + "h";
                     document.getElementById('stIdle').innerText = (profile.stats_idle_hours || 0) + "h";
 
-                    // OPS BREAKDOWN
-                    const opsDiv = document.getElementById('opsBreakdown');
-                    opsDiv.innerHTML = '';
-                    if(profile.stats_ops_breakdown) {
-                        for (const [key, value] of Object.entries(profile.stats_ops_breakdown)) {
-                            opsDiv.innerHTML += `<div style="background:#333; padding:5px; border-radius:3px;">${key}: <b>${value}</b></div>`;
-                        }
-                    } else { opsDiv.innerText = "No operations recorded."; }
-
                     // PROFILE FORM
                     document.getElementById('profName').value = profile.full_name || "";
                     document.getElementById('profSecLicNum').value = profile.security_license_number || "";
                     document.getElementById('profPhone').value = profile.phone || "";
                     
-                    // LOCK FIELDS IF NOT COMMAND
-                    const isCommand = ['Admin','Command','Dispatch'].includes(profile.role);
+                    // ROLE LOGIC & DASHBOARDS
+                    const isCommand = ['Admin','Command'].includes(profile.role);
+                    const isDispatch = ['Dispatch','Command'].includes(profile.role);
+                    
                     document.getElementById('profSecLicNum').disabled = !isCommand;
+                    
                     if(isCommand) {
                         document.getElementById('commandLinks').style.display = 'block';
                         document.getElementById('cmdRadioTools').style.display = 'block';
+                        document.getElementById('cmdDash').style.display = 'block';
+                        loadCommandView();
+                    }
+                    
+                    if(isDispatch) {
+                        document.getElementById('commandLinks').style.display = 'block';
+                        document.getElementById('dspDash').style.display = 'block';
+                        loadDispatchView();
                     }
                     
                     if(socket) {
@@ -495,22 +438,11 @@
                                 pos => {
                                     const lat = pos.coords.latitude; const lng = pos.coords.longitude;
                                     socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
-                                    
-                                    // GPS TRAIL
-                                    if(!pathCoords) pathCoords = [];
-                                    pathCoords.push([lat, lng]);
-                                    if(myPathLine) myPathLine.setLatLngs(pathCoords);
-                                    else myPathLine = L.polyline(pathCoords, {color: 'red'}).addTo(map);
-
                                     if(!myMarker) { myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', radius: 8 }).addTo(map); map.setView([lat, lng], 16); }
                                     else { myMarker.setLatLng([lat, lng]); }
                                     document.getElementById('gpsIndicator').innerText = "GPS: LIVE ✅";
-                                    
-                                    // GEOFENCE CHECK
-                                    checkGeofences(lat, lng);
                                 },
-                                err => { document.getElementById('gpsIndicator').innerText = "GPS: BLOCKED ❌"; },
-                                { enableHighAccuracy: true }
+                                err => { document.getElementById('gpsIndicator').innerText = "GPS: BLOCKED ❌"; }
                             );
                         }
                     }
@@ -519,18 +451,34 @@
             } catch(e) { console.error("Profile Error:", e); }
         }
 
-        async function checkGeofences(lat, lng) {
-            // Mocked Geofence Logic - In production, fetch from DB
-            const { data } = await sb.from('geofences').select('*');
+        // --- DASHBOARD VIEW LOADERS ---
+        async function loadCommandView() {
+            const { data } = await sb.from('profiles').select('full_name, role, current_status');
+            const div = document.getElementById('cmdUnitList');
+            div.innerHTML = '';
             if(data) {
-                data.forEach(fence => {
-                    const d = map.distance([lat, lng], [fence.lat, fence.lng]);
-                    if(d < fence.radius) {
-                        // User inside fence
-                        // console.log("Inside " + fence.name);
-                    }
+                data.forEach(u => {
+                    let color = '#64748b'; // Off
+                    if(u.current_status === 'Active') color = '#10b981'; // Green
+                    if(u.current_status === 'Idle') color = '#f59e0b'; // Orange
+                    div.innerHTML += `<div style="padding:5px; border-bottom:1px solid #333; display:flex; justify-content:space-between;"><span>${u.full_name} (${u.role})</span><span style="color:${color}; font-weight:bold;">● ${u.current_status || 'Off'}</span></div>`;
                 });
             }
+        }
+
+        async function loadDispatchView() {
+            const { data } = await sb.from('tickets').select('*').eq('status', 'Open');
+            const div = document.getElementById('dspPendingList');
+            div.innerHTML = data && data.length ? data.map(t => `<div>${t.description} @ ${t.location}</div>`).join('') : "No active calls.";
+        }
+
+        async function quickDispatch() {
+            const desc = document.getElementById('dspQuickTask').value;
+            if(!desc) return;
+            await sb.from('tickets').insert([{ description: desc, status: 'Open', type: 'Priority', location: 'TBD' }]);
+            document.getElementById('dspQuickTask').value = '';
+            alert("Call Broadcasted!");
+            loadDispatchView();
         }
 
         // --- RADIO & ACCESS LOGIC ---
