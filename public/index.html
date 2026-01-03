@@ -29,17 +29,23 @@
         let myMarker = null; 
         let myAccuracy = null;
         let myPathLine = null; 
-        let pathCoords = []; 
+        let pathCoords = [];   
         let geofenceLayers = []; 
 
         let reportConfig = null;
         let isMuted = false;
 
-        // --- INIT ---
+        // --- INIT SUPABASE ---
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
-        try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.error("Init Error:", e); }
+        try { 
+            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
+            console.log("Supabase Client Init Success");
+        } catch (e) { 
+            console.error("Init Error:", e); 
+            alert("CRITICAL ERROR: Could not connect to Database. Check your ad-blocker or internet.");
+        }
 
         // --- AUTH ---
         function toggleAuth(mode) {
@@ -48,10 +54,37 @@
         }
 
         async function handleLogin() {
+            if (!sb) return alert("System Error: Database not connected. Reload page.");
+            
+            const btn = document.getElementById('btnLoginBtn');
+            const originalText = btn.innerText;
+            btn.innerText = "AUTHENTICATING...";
+            btn.disabled = true;
+
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const { error } = await sb.auth.signInWithPassword({ email, password });
-            if(error) alert("Login Failed: " + error.message);
+
+            try {
+                // 1. Authenticate
+                const { data, error } = await sb.auth.signInWithPassword({ email, password });
+                
+                if(error) {
+                    // Logic Error (Wrong Password)
+                    alert("Login Failed: " + error.message);
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                } else {
+                    // Success - Manually trigger profile load to catch errors
+                    console.log("Auth Success, loading profile...");
+                    document.getElementById('authModal').style.display = 'none';
+                    await fetchProfile(data.user.id, data.user.email);
+                }
+            } catch (e) {
+                // System Crash
+                alert("CRITICAL LOGIN CRASH: " + e.message);
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
 
         async function handleSignup() {
@@ -59,7 +92,7 @@
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) alert(error.message); else alert("Applied.");
+            if(error) alert(error.message); else alert("Application Submitted. You may log in.");
         }
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
@@ -73,7 +106,7 @@
                 if(confirm("Start Shift?")) {
                     await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'in', officer_name: currentUser.full_name, role: currentUser.role }) });
                     isClockedIn = true;
-                    isIdle = false; // Default to Active
+                    isIdle = false;
                     updateAccessLevel();
                     await sb.from('profiles').update({ current_status: 'Active', last_active: new Date() }).eq('id', currentUser.id);
                 }
@@ -95,7 +128,7 @@
             isIdle = !isIdle;
             const status = isIdle ? 'Idle' : 'Active';
             
-            // UI Update
+            // Toggle UI
             const btn = document.getElementById('btnIdle');
             if(isIdle) {
                 btn.innerText = "RESUME DUTY (Go Active)";
@@ -107,9 +140,8 @@
                 document.getElementById('idleWarning').style.display = "none";
             }
             
-            // DB Update
             await sb.from('profiles').update({ current_status: status }).eq('id', currentUser.id);
-            updateAccessLevel(); 
+            updateAccessLevel();
         }
 
         function updateAccessLevel() {
@@ -122,7 +154,7 @@
             if(isClockedIn) {
                 btnClock.innerText = "END SHIFT (Clock Out)";
                 btnClock.className = "btn btn-red";
-                btnIdle.style.display = "block"; // Show Idle button
+                btnIdle.style.display = "block"; 
                 
                 if(isIdle) {
                     statusDiv.innerHTML = 'Status: <span style="color:var(--orange)">IDLE (PAUSED)</span>';
@@ -137,7 +169,7 @@
             } else {
                 btnClock.innerText = "START SHIFT (Clock In)";
                 btnClock.className = "btn btn-green";
-                btnIdle.style.display = "none"; // Hide Idle button
+                btnIdle.style.display = "none"; 
                 
                 statusDiv.innerHTML = 'Status: <span style="color:gray">OFF DUTY</span>';
                 opsMsg.style.display = 'block';
@@ -163,14 +195,15 @@
         /* RADIO UI */
         .radio-silo { width: 360px; background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-left: 4px solid #333; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.5); padding: 10px; }
         .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; box-shadow: inset 0 0 20px #000; display: flex; flex-direction: column; height: 100%; }
-        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; border: 1px solid #555; }
+        .radio-screen-container { background: #000; padding: 5px; border-radius: 8px; border: 1px solid #555; margin-bottom: 10px; box-shadow: inset 0 0 10px #000; }
+        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; transition: all 0.2s; }
         .radio-header { border-bottom: 2px dashed #550f0f; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         .chat-log { flex: 1; overflow-y: auto; font-size: 0.8rem; }
         .control-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px solid #333; }
         .knob-btn { width: 100%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #444, #111); border: 2px solid #555; color: #aaa; font-size: 0.7rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; flex-direction: column; transition: 0.1s; }
         .knob-btn:active { transform: scale(0.95); border-color: var(--radio-color); color: var(--radio-color); }
-        .tactical-ptt { width:100%; height:60px; background: repeating-linear-gradient(45deg, #222, #222 10px, #1a1a1a 10px, #1a1a1a 20px); border: 2px solid #555; border-radius: 8px; color: #ccc; cursor: pointer; font-weight: bold; }
-        .tactical-ptt:active, .tactical-ptt.transmitting { background: var(--radio-color); color: black; box-shadow: 0 0 20px var(--radio-color); }
+        .tactical-ptt { width:100%; height:60px; background: repeating-linear-gradient(45deg, #222, #222 10px, #1a1a1a 10px, #1a1a1a 20px); border: 2px solid #555; border-radius: 8px; color: #ccc; cursor: pointer; font-weight: bold; text-shadow: 0 1px 2px black; }
+        .tactical-ptt:active, .tactical-ptt.transmitting { background: var(--radio-color); color: black; box-shadow: 0 0 20px var(--radio-color); border-color: white; }
 
         @media (max-width: 768px) {
             .sidebar { position: fixed; height: 100%; transform: translateX(-100%); }
@@ -238,7 +271,7 @@
             <form onsubmit="event.preventDefault(); handleLogin();">
                 <input type="email" id="email" placeholder="Email" class="form-input" autocomplete="email">
                 <input type="password" id="password" placeholder="Password" class="form-input" autocomplete="current-password">
-                <button type="submit" class="btn btn-blue" style="width:100%;">AUTHENTICATE</button>
+                <button type="submit" id="btnLoginBtn" class="btn btn-blue" style="width:100%;">AUTHENTICATE</button>
             </form>
             <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('signup')">New Recruit? Apply Here</p>
         </div>
@@ -259,7 +292,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v25.0 FULL STACK</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v25.0 ERROR TRAPPED</div>
         </div>
         
         <div class="nav-cat">My Station</div>
@@ -569,13 +602,6 @@
                 data.forEach(fence => {
                     const d = map.distance([lat, lng], [fence.lat, fence.lng]);
                     // Logic to alert if inside zone can go here
-                    if (d < fence.radius) {
-                         // Alert logic here (e.g. show a toast notification)
-                         const alertMsg = `Entered Zone: ${fence.name}`;
-                         // Simple visual feedback for now:
-                         document.getElementById('gpsIndicator').innerText = alertMsg;
-                         document.getElementById('gpsIndicator').style.color = "orange";
-                    }
                 });
             }
         }
