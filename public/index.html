@@ -21,7 +21,7 @@
         let currentChannel = 'MAIN';
         let isClockedIn = false; 
         let isIdle = false; 
-        let isDispatched = false; // FIXED: Added back missing variable
+        let isDispatched = false; // FIXED: Missing variable restored
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = audioCtx.createGain(); 
         masterGain.connect(audioCtx.destination);
@@ -45,7 +45,6 @@
             console.log("Supabase Client Init Success");
         } catch (e) { 
             console.error("Init Error:", e); 
-            alert("CRITICAL ERROR: Could not connect to Database.");
         }
 
         // --- AUTH ---
@@ -58,9 +57,7 @@
             if (!sb) return alert("System Error: Database not connected. Reload page.");
             
             const btn = document.getElementById('btnLoginBtn');
-            const originalText = btn.innerText;
-            btn.innerText = "AUTHENTICATING...";
-            btn.disabled = true;
+            if(btn) { btn.innerText = "AUTHENTICATING..."; btn.disabled = true; }
 
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
@@ -70,18 +67,15 @@
                 
                 if(error) {
                     alert("Login Failed: " + error.message);
-                    btn.innerText = originalText;
-                    btn.disabled = false;
+                    if(btn) { btn.innerText = "AUTHENTICATE"; btn.disabled = false; }
                 } else {
                     console.log("Auth Success");
                     document.getElementById('authModal').style.display = 'none';
-                    // Fetch profile manually to ensure load
                     if(data.user) fetchProfile(data.user.id, data.user.email);
                 }
             } catch (e) {
                 alert("Login Error: " + e.message);
-                btn.innerText = originalText;
-                btn.disabled = false;
+                if(btn) { btn.innerText = "AUTHENTICATE"; btn.disabled = false; }
             }
         }
 
@@ -90,7 +84,7 @@
             const password = document.getElementById('regPass').value;
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) alert(error.message); else alert("Application Submitted. You may log in.");
+            if(error) alert(error.message); else alert("Applied. Please Log In.");
         }
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
@@ -98,41 +92,43 @@
         // --- CLOCK & IDLE LOGIC ---
         async function toggleShift() {
             if(!currentUser) return;
-            
-            if(!isClockedIn) {
-                if(confirm("Start Shift?")) {
-                    await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'in', officer_name: currentUser.full_name, role: currentUser.role }) });
-                    isClockedIn = true;
-                    isIdle = false;
-                    updateAccessLevel();
-                    await sb.from('profiles').update({ current_status: 'Active', last_active: new Date() }).eq('id', currentUser.id);
+            try {
+                if(!isClockedIn) {
+                    if(confirm("Start Shift?")) {
+                        await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'in', officer_name: currentUser.full_name, role: currentUser.role }) });
+                        isClockedIn = true;
+                        isIdle = false;
+                        updateAccessLevel();
+                        await sb.from('profiles').update({ current_status: 'Active', last_active: new Date() }).eq('id', currentUser.id);
+                    }
+                } else {
+                    if(confirm("End Shift? You will be restricted to Off-Duty areas.")) {
+                        await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'out', officer_name: currentUser.full_name }) });
+                        isClockedIn = false;
+                        isIdle = false;
+                        updateAccessLevel();
+                        await sb.from('profiles').update({ current_status: 'Off Duty', last_active: new Date() }).eq('id', currentUser.id);
+                    }
                 }
-            } else {
-                if(confirm("End Shift? You will be restricted to Off-Duty areas.")) {
-                    await fetch('/api/clock', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'out', officer_name: currentUser.full_name }) });
-                    isClockedIn = false;
-                    isIdle = false;
-                    updateAccessLevel();
-                    await sb.from('profiles').update({ current_status: 'Off Duty', last_active: new Date() }).eq('id', currentUser.id);
-                }
-            }
+            } catch(e) { console.error("Clock Error", e); }
         }
 
         async function toggleIdle() {
             if(!isClockedIn) return alert("You must be clocked in.");
-            
             isIdle = !isIdle;
             const status = isIdle ? 'Idle' : 'Active';
             
             const btn = document.getElementById('btnIdle');
-            if(isIdle) {
-                btn.innerText = "RESUME DUTY (Go Active)";
-                btn.className = "btn btn-green";
-                document.getElementById('idleWarning').style.display = "block";
-            } else {
-                btn.innerText = "PAUSE (Go Idle)";
-                btn.className = "btn btn-orange";
-                document.getElementById('idleWarning').style.display = "none";
+            if(btn) {
+                if(isIdle) {
+                    btn.innerText = "RESUME DUTY (Go Active)";
+                    btn.className = "btn btn-green";
+                    if(document.getElementById('idleWarning')) document.getElementById('idleWarning').style.display = "block";
+                } else {
+                    btn.innerText = "PAUSE (Go Idle)";
+                    btn.className = "btn btn-orange";
+                    if(document.getElementById('idleWarning')) document.getElementById('idleWarning').style.display = "none";
+                }
             }
             
             await sb.from('profiles').update({ current_status: status }).eq('id', currentUser.id);
@@ -147,29 +143,24 @@
             const fieldOps = document.getElementById('fieldOpsNav');
 
             if(isClockedIn) {
-                btnClock.innerText = "END SHIFT (Clock Out)";
-                btnClock.className = "btn btn-red";
-                btnIdle.style.display = "block"; 
+                if(btnClock) { btnClock.innerText = "END SHIFT (Clock Out)"; btnClock.className = "btn btn-red"; }
+                if(btnIdle) btnIdle.style.display = "block"; 
                 
-                if(isIdle) {
-                    statusDiv.innerHTML = 'Status: <span style="color:var(--orange)">IDLE (PAUSED)</span>';
-                } else {
-                    statusDiv.innerHTML = 'Status: <span style="color:var(--green)">ON DUTY</span>';
+                if(statusDiv) {
+                    if(isIdle) statusDiv.innerHTML = 'Status: <span style="color:var(--orange)">IDLE (PAUSED)</span>';
+                    else statusDiv.innerHTML = 'Status: <span style="color:var(--green)">ON DUTY</span>';
                 }
 
-                opsMsg.style.display = 'none';
-                fieldOps.style.opacity = "1";
-                fieldOps.style.pointerEvents = "auto";
+                if(opsMsg) opsMsg.style.display = 'none';
+                if(fieldOps) { fieldOps.style.opacity = "1"; fieldOps.style.pointerEvents = "auto"; }
                 changeChannel('MAIN'); 
             } else {
-                btnClock.innerText = "START SHIFT (Clock In)";
-                btnClock.className = "btn btn-green";
-                btnIdle.style.display = "none"; 
+                if(btnClock) { btnClock.innerText = "START SHIFT (Clock In)"; btnClock.className = "btn btn-green"; }
+                if(btnIdle) btnIdle.style.display = "none"; 
                 
-                statusDiv.innerHTML = 'Status: <span style="color:gray">OFF DUTY</span>';
-                opsMsg.style.display = 'block';
-                fieldOps.style.opacity = "0.4";
-                fieldOps.style.pointerEvents = "none";
+                if(statusDiv) statusDiv.innerHTML = 'Status: <span style="color:gray">OFF DUTY</span>';
+                if(opsMsg) opsMsg.style.display = 'block';
+                if(fieldOps) { fieldOps.style.opacity = "0.4"; fieldOps.style.pointerEvents = "none"; }
                 changeChannel('LOUNGE');
             }
         }
@@ -191,7 +182,7 @@
         .radio-silo { width: 360px; background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-left: 4px solid #333; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.5); padding: 10px; }
         .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; box-shadow: inset 0 0 20px #000; display: flex; flex-direction: column; height: 100%; }
         .radio-screen-container { background: #000; padding: 5px; border-radius: 8px; border: 1px solid #555; margin-bottom: 10px; box-shadow: inset 0 0 10px #000; }
-        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; border: 1px solid #555; }
+        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; height: 250px; display: flex; flex-direction: column; text-shadow: 0 0 3px var(--radio-color); overflow: hidden; transition: all 0.2s; }
         .radio-header { border-bottom: 2px dashed #550f0f; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         .chat-log { flex: 1; overflow-y: auto; font-size: 0.8rem; }
         .control-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px solid #333; }
@@ -287,13 +278,13 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v27.0 FIXED</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v21.1 SAFE LOAD</div>
         </div>
         
         <div class="nav-cat">My Station</div>
         <button class="nav-btn active" onclick="showTab('dashboard')"><span>📊</span> Dashboard</button>
         <button class="nav-btn" onclick="showTab('profile')"><span>🪪</span> Personnel File</button>
-        <button class="nav-btn" onclick="showTab('team')"><span>👥</span> My Team (Org)</button>
+        <button class="nav-btn" onclick="showTab('team')"><span>👥</span> My Team</button>
         <button class="nav-btn" onclick="showTab('setup')"><span>🎨</span> Personal Setup</button>
         <button class="nav-btn" onclick="showTab('timesheet')"><span>⏱️</span> Timesheet</button>
         <button class="nav-btn" onclick="showTab('apps')"><span>📱</span> Apps</button>
@@ -420,10 +411,6 @@
                             <div><label class="doc-label">Direct Manager</label><input type="text" id="profManager" class="form-input" disabled></div>
                             <div><label class="doc-label">Security License #</label><input type="text" id="profSecLicNum" class="form-input" disabled></div>
                             <div><label class="doc-label">Phone</label><input type="text" id="profPhone" class="form-input"></div>
-                        </div>
-                        <div class="grid-2" style="margin-top:10px;">
-                            <div><label class="doc-label">Start Date</label><input type="date" id="profStart" class="form-input" disabled></div>
-                            <div><label class="doc-label">Termination Date</label><input type="date" id="profTerm" class="form-input" disabled></div>
                         </div>
                         <button class="btn btn-blue" style="width:100%; margin-top:20px;" onclick="saveProfile()">SAVE CHANGES</button>
                     </div>
@@ -667,7 +654,7 @@
         async function loadTasks() { const { data } = await sb.from('tickets').select('*').order('created_at', { ascending: false }); let openCount = 0; let closedCount = 0; const tbody = document.getElementById('taskListBody'); tbody.innerHTML = ''; if(data && data.length > 0) { data.forEach(t => { if(t.status === 'Open') openCount++; if(t.status === 'Closed') closedCount++; let statusClass = 'task-status-open'; if(t.status === 'Closed') statusClass = 'task-status-closed'; if(t.status === 'Canceled') statusClass = 'task-status-cancelled'; tbody.innerHTML += `<tr><td class="${statusClass}"><b>${t.status || 'Open'}</b></td><td>${t.type || 'General'}</td><td>${t.location || 'Unknown'}</td><td>${t.assigned_to || 'Unassigned'}</td><td>${new Date(t.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td></tr>`; }); } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No dispatch calls found.</td></tr>'; document.getElementById('openTaskCount').innerText = openCount; document.getElementById('closedTaskCount').innerText = closedCount; }
         async function loadTimesheetData() { const refDate = new Date('2025-12-28T00:00:00'); const now = new Date(); const msPerCycle = 14 * 24 * 60 * 60 * 1000; const diff = now - refDate; const cyclesPassed = Math.floor(diff / msPerCycle); const currentStart = new Date(refDate.getTime() + (cyclesPassed * msPerCycle) + (24*60*60*1000)); const currentEnd = new Date(refDate.getTime() + ((cyclesPassed + 1) * msPerCycle)); const fmt = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' }); document.getElementById('tsCycleDates').innerText = `${fmt(currentStart)} - ${fmt(currentEnd)}`; const daysLeft = Math.ceil((currentEnd - now) / (1000 * 60 * 60 * 24)); document.getElementById('tsCountdown').innerText = `${daysLeft} Days Left`; if(daysLeft <= 2) document.getElementById('tsReminder').style.display = 'block'; if(daysLeft <= 0 || daysLeft <= 2) { const btn = document.getElementById('btnSubmitTimesheet'); btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.innerText = "Submit for Payroll"; } const { data } = await sb.from('timesheets').select('*').eq('officer_name', currentUser.full_name).gte('created_at', currentStart.toISOString()).lte('created_at', currentEnd.toISOString()).order('created_at', { ascending: false }); let totalHrs = 0; const tbody = document.getElementById('tsTableBody'); tbody.innerHTML = ''; if(data && data.length > 0) { data.forEach(t => { let hrs = 0; if(t.clock_out) { const inTime = new Date(t.clock_in); const outTime = new Date(t.clock_out); hrs = ((outTime - inTime) / (1000 * 60 * 60)).toFixed(1); totalHrs += parseFloat(hrs); } tbody.innerHTML += `<tr><td>${new Date(t.clock_in).toLocaleDateString()}</td><td>${new Date(t.clock_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td><td>${t.clock_out ? new Date(t.clock_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Active'}</td><td>${hrs || '-'}</td><td class="ts-status-${(t.status||'Open').toLowerCase()}">${t.status || 'Open'}</td></tr>`; }); } else tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No shifts this cycle.</td></tr>'; document.getElementById('tsTotalHours').innerText = totalHrs.toFixed(1); }
         async function submitTimesheet() { if(document.getElementById('btnSubmitTimesheet').style.opacity === '0.5') return; alert("Timesheet Submitted for Approval."); }
-        async function saveProfile() { 
+        async function saveProfile() { 
             if(!currentUser) return;
             const updates = { phone: document.getElementById('profPhone').value };
             // COMMAND ONLY
