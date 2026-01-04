@@ -12,12 +12,6 @@
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
-        // --- GLOBAL ERROR HANDLER (Prevents White Screen) ---
-        window.onerror = function(msg, url, line) {
-            alert("System Error: " + msg + "\nLine: " + line);
-            return false;
-        };
-
         // --- GLOBALS ---
         let sb = null;
         let socket = null;
@@ -27,6 +21,7 @@
         let currentChannel = 'MAIN';
         let isClockedIn = false; 
         let isIdle = false; 
+        let isDispatched = false;
         let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = audioCtx.createGain(); 
         masterGain.connect(audioCtx.destination);
@@ -42,7 +37,17 @@
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
-        try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.error("Init Error:", e); }
+        try { 
+            // STORAGE FIX: Explicitly setting storage options to help with browser blocking
+            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: true
+                }
+            }); 
+            console.log("Supabase Init Success"); 
+        } catch (e) { console.error("Init Error:", e); }
 
         // --- HELPER: SAFE DOM ---
         function safeText(id, text) { const el = document.getElementById(id); if(el) el.innerText = text; }
@@ -88,8 +93,9 @@
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
-        // --- COMMAND CENTER LOGIC ---
+        // --- COMMAND CENTER LOGIC (RESTORED) ---
         
+        // 1. USERS TAB
         async function loadCommandUsers() {
             const { data } = await sb.from('profiles').select('*').order('rank');
             const div = document.getElementById('cmdUserList');
@@ -119,6 +125,7 @@
 
         async function createNewUser() { alert("Use the 'Setup' tab to create users, or use the public signup link for recruits."); }
 
+        // 2. OPS TAB
         async function loadCommandOps() {
             const { data: ops } = await sb.from('operations').select('*'); 
             const div = document.getElementById('cmdOpsList');
@@ -152,6 +159,7 @@
             div.style.display = 'block';
         }
 
+        // 3. CLIENTS TAB
         async function loadCommandClients() {
             const { data } = await sb.from('clients').select('*');
             const div = document.getElementById('cmdClientList');
@@ -169,6 +177,7 @@
             if(name) { await sb.from('clients').insert([{ name: name }]); loadCommandClients(); }
         }
 
+        // 4. OVERWATCH TAB
         async function loadOverwatch() {
             const { count: open } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Open');
             const { count: closed } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Closed');
@@ -193,7 +202,13 @@
                 
                 if(profile) {
                     currentUser = profile;
-                    if(email === 'operations@evidentiasecurity.ca') currentUser.role = 'Command';
+                    
+                    // --- FORCE COMMAND OVERRIDE ---
+                    // This fixes the issue where the dashboard wasn't showing
+                    if(email === 'operations@evidentiasecurity.ca') {
+                        currentUser.role = 'Command'; 
+                        console.log("Super Admin Identified. Unlocking Command Center.");
+                    }
 
                     // STATUS
                     if(profile.current_status === 'Active') { isClockedIn = true; isIdle = false; }
@@ -233,48 +248,46 @@
                     if(licInput) licInput.disabled = !isCommand;
                     
                     if(isCommand) {
-                        safeShow('commandCenterNav', true);
+                        safeShow('commandCenterNav', true); // UNHIDE COMMAND TABS
                         safeShow('cmdRadioTools', true);
                         safeShow('profLockMsg', false);
                         const profInputs = document.querySelectorAll('#tab-profile input');
                         profInputs.forEach(el => el.disabled = false);
+                        
+                        // Load Command Data immediately
+                        loadCommandUsers();
+                        loadCommandOps();
+                        loadOverwatch();
                     }
                     
-                    // INIT SYSTEMS (MAP & SOCKET) - DELAYED TO PREVENT BLANK PAGE
-                    setTimeout(() => {
-                        initMapAndSocket(profile);
-                    }, 500);
-
+                    // INIT SYSTEMS (MAP & SOCKET)
+                    if(socket) {
+                        socket.emit('join-channel', 'MAIN');
+                        if(navigator.geolocation) {
+                            navigator.geolocation.watchPosition(
+                                pos => {
+                                    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+                                    socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
+                                    
+                                    // SAFE MAP INIT
+                                    if(!map && document.getElementById('map')) {
+                                        map = L.map('map').setView([lat, lng], 14);
+                                        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
+                                    }
+                                    
+                                    if(map) {
+                                        if(!myMarker) { myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', radius: 8 }).addTo(map); }
+                                        else { myMarker.setLatLng([lat, lng]); }
+                                    }
+                                    safeText('gpsIndicator', "GPS: LIVE ✅");
+                                },
+                                err => { safeText('gpsIndicator', "GPS: BLOCKED ❌"); }
+                            );
+                        }
+                    }
                     loadAllData();
                 }
             } catch(e) { console.error("Profile Error:", e); }
-        }
-
-        function initMapAndSocket(profile) {
-            if(socket) {
-                socket.emit('join-channel', 'MAIN');
-                if(navigator.geolocation) {
-                    navigator.geolocation.watchPosition(
-                        pos => {
-                            const lat = pos.coords.latitude; const lng = pos.coords.longitude;
-                            socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
-                            
-                            // SAFE MAP INIT
-                            if(!map && document.getElementById('map')) {
-                                map = L.map('map').setView([lat, lng], 14);
-                                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
-                            }
-                            
-                            if(map) {
-                                if(!myMarker) { myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', radius: 8 }).addTo(map); }
-                                else { myMarker.setLatLng([lat, lng]); }
-                            }
-                            safeText('gpsIndicator', "GPS: LIVE ✅");
-                        },
-                        err => { safeText('gpsIndicator', "GPS: BLOCKED ❌"); }
-                    );
-                }
-            }
         }
 
         function loadAllData() {
@@ -457,7 +470,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v33.0 STABLE</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v34.0 RESTORED</div>
         </div>
         
         <div id="commandCenterNav" style="display:none;">
@@ -526,19 +539,6 @@
                         </div>
                         <p id="dashName">Officer: Loading...</p>
                         <p id="dashRole">Role: Loading...</p>
-                        
-                        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin:15px 0;">
-                            <div class="stat-box"><div class="stat-val" id="stIdle">0h</div><div class="stat-lbl">IDLE</div></div>
-                            <div class="stat-box"><div class="stat-val" id="stTrain">0h</div><div class="stat-lbl">TRAINING</div></div>
-                            <div class="stat-box"><div class="stat-val" id="stAvgOp">0m</div><div class="stat-lbl">AVG OPS</div></div>
-                            <div class="stat-box"><div class="stat-val" id="stRefuse">0%</div><div class="stat-lbl">REFUSAL</div></div>
-                        </div>
-                        
-                        <div class="card" style="margin-top:10px; background:#111;">
-                            <h4 style="margin:0 0 10px 0; font-size:0.9rem; color:#aaa;">Operations Covered</h4>
-                            <div id="opsBreakdown" style="font-size:0.8rem; display:flex; flex-wrap:wrap; gap:10px;">Loading...</div>
-                        </div>
-
                         <div class="grid-2" style="margin-top:10px;">
                             <button id="btnIdle" class="btn btn-orange" style="display:none;" onclick="toggleIdle()">PAUSE (Go Idle)</button>
                             <button id="btnClock" class="btn btn-green" onclick="toggleShift()">START SHIFT</button>
