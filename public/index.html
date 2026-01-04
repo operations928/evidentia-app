@@ -12,6 +12,16 @@
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
+        // --- GLOBAL ERROR HANDLER ---
+        window.onerror = function(msg, url, line) {
+            console.error("Global Error:", msg, "Line:", line);
+            // Only alert on critical failures, not warnings
+            if (msg.toLowerCase().includes("script error") || msg.toLowerCase().includes("unexpected")) {
+                alert("System Error: " + msg);
+            }
+            return false;
+        };
+
         // --- GLOBALS ---
         let sb = null;
         let socket = null;
@@ -33,7 +43,7 @@
         let isMuted = false;
         let map = null; 
 
-        // --- SAFE STORAGE ADAPTER (Fixes Tracking Prevention) ---
+        // --- SAFE STORAGE ADAPTER ---
         const memoryStorage = {};
         const safeStorageAdapter = {
             getItem: (key) => {
@@ -54,10 +64,10 @@
         try { 
             sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
                 auth: {
-                    storage: safeStorageAdapter, // Forces app to work even if browser blocks cookies
+                    storage: safeStorageAdapter,
                     persistSession: true,
                     autoRefreshToken: true,
-                    detectSessionInUrl: false // Prevents URL fragment errors
+                    detectSessionInUrl: false
                 }
             }); 
             console.log("Supabase Init Success"); 
@@ -85,15 +95,14 @@
             try {
                 const { data, error } = await sb.auth.signInWithPassword({ email, password });
                 if(error) {
-                    console.error("Login Error Detail:", error);
-                    alert("Login Failed: " + error.message); // Will now show "Invalid login credentials"
+                    alert("Login Failed: " + error.message);
                     btn.innerText = "AUTHENTICATE"; btn.disabled = false;
                 } else {
                     document.getElementById('authModal').style.display = 'none';
                     fetchProfile(data.user.id, data.user.email);
                 }
             } catch (e) {
-                alert("Critical Login Error: " + e.message);
+                alert("Login Error: " + e.message);
                 btn.innerText = "AUTHENTICATE"; btn.disabled = false;
             }
         }
@@ -106,10 +115,8 @@
             if(password.length < 6) return alert("Password must be at least 6 characters.");
 
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-            if(error) {
-                console.error("Signup Error:", error);
-                alert("Signup Failed: " + error.message); // Will show 422 reason
-            } else {
+            if(error) alert("Signup Failed: " + error.message); 
+            else {
                 alert("Application Submitted. Please Log In.");
                 toggleAuth('login');
             }
@@ -130,539 +137,4 @@
                         <tr>
                             <td>${u.full_name}</td>
                             <td>${u.rank || '-'}</td>
-                            <td>${u.role || '-'}</td>
-                            <td style="color:${u.current_status==='Active'?'#10b981':'#64748b'}">${u.current_status || 'Off'}</td>
-                            <td><button class="btn btn-blue" style="font-size:0.6rem; padding:2px 5px;" onclick="editUser('${u.id}')">EDIT</button></td>
-                        </tr>`;
-                });
-                div.innerHTML += '</table>';
-            } else { div.innerHTML = "No users found."; }
-        }
-
-        function editUser(id) {
-            const newRank = prompt("Assign New Rank (e.g. Captain):");
-            if(newRank) {
-                sb.from('profiles').update({ rank: newRank }).eq('id', id).then(() => { alert("Rank Updated"); loadCommandUsers(); });
-            }
-        }
-
-        async function createNewUser() { alert("Use the 'Setup' tab to create users, or use the public signup link for recruits."); }
-
-        async function loadCommandOps() {
-            const { data: ops } = await sb.from('operations').select('*'); 
-            const div = document.getElementById('cmdOpsList');
-            if(!div) return;
-            div.innerHTML = '';
-            if(ops && ops.length > 0) {
-                ops.forEach(op => {
-                    div.innerHTML += `
-                        <div class="job-card" onclick="viewOpDetails('${op.id}')">
-                            <div class="job-header"><div class="job-title">${op.title}</div><div style="font-size:0.8rem; color:orange;">${op.status}</div></div>
-                            <div class="job-detail">🛡️ Type: ${op.type || 'General'} | ⏱️ ${op.total_hours} Hrs</div>
-                        </div>`;
-                });
-            } else { div.innerHTML = "No active operations."; }
-        }
-
-        async function createOperation() {
-            const title = prompt("Operation Title:");
-            if(title) { await sb.from('operations').insert([{ title: title, status: 'Planning', type: 'General' }]); loadCommandOps(); }
-        }
-
-        async function viewOpDetails(opId) {
-            const { data: logs } = await sb.from('audit_logs').select('*').eq('operation_id', opId).order('timestamp', {ascending:false});
-            let timelineHtml = '<div style="margin-top:10px; border-left:2px solid #555; padding-left:10px;">';
-            if(logs && logs.length > 0) {
-                logs.forEach(log => { timelineHtml += `<div style="font-size:0.8rem; margin-bottom:5px;"><b style="color:#3b82f6">${new Date(log.timestamp).toLocaleTimeString()}</b> - ${log.action}</div>`; });
-            } else {
-                timelineHtml += '<div style="font-size:0.8rem; color:#aaa;">No history recorded.</div>';
-            }
-            timelineHtml += '</div>';
-            const div = document.getElementById('cmdOpsDetails');
-            div.innerHTML = `<h3>Op Details</h3>${timelineHtml}`;
-            div.style.display = 'block';
-        }
-
-        async function loadCommandClients() {
-            const { data } = await sb.from('clients').select('*');
-            const div = document.getElementById('cmdClientList');
-            if(!div) return;
-            div.innerHTML = '';
-            if(data) {
-                data.forEach(c => {
-                    div.innerHTML += `<div class="card" style="padding:10px; border:1px solid #444;"><h4>${c.name}</h4><div style="font-size:0.8rem;">📍 Sites: ${(c.sites || []).length}</div><div style="font-size:0.8rem;">👮 Req: ${c.required_officers} Officers</div></div>`;
-                });
-            }
-        }
-
-        async function addClient() {
-            const name = prompt("Client Name:");
-            if(name) { await sb.from('clients').insert([{ name: name }]); loadCommandClients(); }
-        }
-
-        async function loadOverwatch() {
-            const { count: open } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Open');
-            const { count: closed } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Closed');
-            safeText('owOpen', open || 0);
-            safeText('owClosed', closed || 0);
-            
-            const { data: tickets } = await sb.from('tickets').select('*').order('created_at', {ascending:false}).limit(10);
-            const feed = document.getElementById('owFeed');
-            if(!feed) return;
-            feed.innerHTML = '';
-            if(tickets) {
-                tickets.forEach(t => { feed.innerHTML += `<div style="padding:5px; border-bottom:1px solid #333; font-size:0.8rem;"><span style="color:${t.status==='Open'?'orange':'green'}">[${t.status}]</span> <b>${t.type}</b> @ ${t.location} - ${t.description}</div>`; });
-            }
-        }
-
-        // --- STANDARD APP LOGIC ---
-        
-        async function fetchProfile(uid, email) {
-            try {
-                let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
-                if (!profile) { await sb.from('profiles').insert([{ id: uid, email: email, full_name: "Unassigned", role: "Unassigned" }]); const res = await sb.from('profiles').select('*').eq('id', uid).single(); profile = res.data; }
-                
-                if(profile) {
-                    currentUser = profile;
-                    if(email === 'operations@evidentiasecurity.ca') currentUser.role = 'Command';
-
-                    if(profile.current_status === 'Active') { isClockedIn = true; isIdle = false; }
-                    else if(profile.current_status === 'Idle') { isClockedIn = true; isIdle = true; }
-                    else { isClockedIn = false; isIdle = false; }
-                    updateAccessLevel();
-
-                    safeText('dashName', "Officer: " + (profile.full_name || "Unknown"));
-                    safeText('dashRole', "Role: " + (profile.role || "Unassigned"));
-
-                    const totalAssign = (profile.stats_accepted || 0) + (profile.stats_refused || 0);
-                    const refusalRatio = totalAssign > 0 ? ((profile.stats_refused / totalAssign) * 100).toFixed(1) + "%" : "0%";
-                    safeText('stRefuse', refusalRatio);
-                    safeText('stTrain', (profile.stats_training_hours || 0) + "h");
-                    safeText('stIdle', (profile.stats_idle_hours || 0) + "h");
-
-                    safeVal('profName', profile.full_name || "");
-                    safeVal('profRank', profile.rank || "");
-                    safeVal('profCallSign', profile.call_sign || "");
-                    safeVal('profTitle', profile.role || ""); 
-                    safeVal('profTeam', profile.team_name || "");
-                    safeVal('profManager', profile.direct_manager || "");
-                    safeVal('profSecLicNum', profile.security_license_number || "");
-                    safeVal('profPhone', profile.phone || ""); 
-                    
-                    if(profile.profile_pic_url) {
-                        const pic = document.getElementById('profPicDisplay');
-                        if(pic) pic.src = profile.profile_pic_url;
-                    }
-
-                    const isCommand = ['Admin','Command'].includes(profile.role);
-                    const licInput = document.getElementById('profSecLicNum');
-                    if(licInput) licInput.disabled = !isCommand;
-                    
-                    if(isCommand) {
-                        safeShow('commandCenterNav', true);
-                        safeShow('cmdRadioTools', true);
-                        safeShow('profLockMsg', false);
-                        const profInputs = document.querySelectorAll('#tab-profile input');
-                        profInputs.forEach(el => el.disabled = false);
-                        
-                        // Load Initial Command Data
-                        loadCommandUsers();
-                        loadCommandOps();
-                        loadOverwatch();
-                    }
-                    
-                    if(socket) {
-                        socket.emit('join-channel', 'MAIN');
-                        if(navigator.geolocation) {
-                            navigator.geolocation.watchPosition(
-                                pos => {
-                                    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
-                                    socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
-                                    
-                                    if(!map && document.getElementById('map')) {
-                                        map = L.map('map').setView([lat, lng], 14);
-                                        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
-                                    }
-                                    
-                                    if(map) {
-                                        if(!myMarker) { myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', radius: 8 }).addTo(map); }
-                                        else { myMarker.setLatLng([lat, lng]); }
-                                    }
-                                    safeText('gpsIndicator', "GPS: LIVE ✅");
-                                },
-                                err => { safeText('gpsIndicator', "GPS: BLOCKED ❌"); }
-                            );
-                        }
-                    }
-                    
-                    // Force Map Load if GPS fails or delays
-                    setTimeout(() => {
-                        if(!map && document.getElementById('map')) {
-                             map = L.map('map').setView([45.4215, -75.6972], 12); 
-                             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
-                        }
-                    }, 2000);
-
-                    loadAllData();
-                }
-            } catch(e) { console.error("Profile Error:", e); }
-        }
-
-        function loadAllData() {
-            try { loadStaff(); } catch(e){}
-            try { loadTickets(); } catch(e){}
-            try { loadReportConfig(); } catch(e){}
-            try { loadCommandUsers(); } catch(e){} 
-        }
-
-        // --- RADIO & CLOCK ---
-        function volUp() { if(masterGain.gain.value < 2) masterGain.gain.value += 0.2; }
-        function volDown() { if(masterGain.gain.value > 0.2) masterGain.gain.value -= 0.2; }
-        function toggleMute() { isMuted = !isMuted; masterGain.gain.value = isMuted ? 0 : 1; document.getElementById('btnMute').style.color = isMuted ? "red" : "#aaa"; }
-        function configPtt() { alert("Hold SPACEBAR to talk."); }
-        function adjustScreen(prop, val) {
-            const screen = document.getElementById('radioScreen');
-            if(prop === 'brightness') screen.style.filter = `brightness(${val}%) contrast(${document.querySelector('input[oninput*="contrast"]').value}%)`;
-            if(prop === 'contrast') screen.style.filter = `contrast(${val}%) brightness(${document.querySelector('input[oninput*="brightness"]').value}%)`;
-        }
-        
-        async function toggleShift() {
-            if(!currentUser) return;
-            if(!isClockedIn) {
-                if(confirm("Start Shift?")) { isClockedIn = true; updateAccessLevel(); }
-            } else {
-                if(confirm("End Shift?")) { isClockedIn = false; updateAccessLevel(); }
-            }
-        }
-        
-        async function toggleIdle() {
-            if(!isClockedIn) return;
-            isIdle = !isIdle;
-            updateAccessLevel();
-        }
-
-        function updateAccessLevel() {
-            const btnClock = document.getElementById('btnClock');
-            const btnIdle = document.getElementById('btnIdle');
-            const statusDiv = document.getElementById('shiftStatus');
-
-            if(isClockedIn) {
-                if(btnClock) { btnClock.innerText = "END SHIFT"; btnClock.className = "btn btn-red"; }
-                if(btnIdle) btnIdle.style.display = "block";
-                if(statusDiv) statusDiv.innerHTML = isIdle ? 'Status: <span style="color:var(--orange)">IDLE</span>' : 'Status: <span style="color:var(--green)">ON DUTY</span>';
-            } else {
-                if(btnClock) { btnClock.innerText = "START SHIFT"; btnClock.className = "btn btn-green"; }
-                if(btnIdle) btnIdle.style.display = "none";
-                if(statusDiv) statusDiv.innerHTML = 'Status: <span style="color:gray">OFF DUTY</span>';
-            }
-        }
-        
-        // --- RESTORED FUNCTIONS ---
-        async function loadStaff() { try { const res = await fetch('/api/staff'); const data = await res.json(); if(data.length) document.getElementById('staffList').innerHTML = data.map(u => `<div>${u.full_name}</div>`).join(''); } catch(e){} }
-        async function loadTickets() { try { const res = await fetch('/api/tickets'); const data = await res.json(); if(data.length) document.getElementById('ticketList').innerHTML = data.map(t => `<div>${t.description}</div>`).join(''); } catch(e){} }
-        async function loadReportConfig() { if(!reportConfig) reportConfig = {toc:['General'], internal:['General']}; updateReportTypes(); }
-        function updateReportTypes() { const cat = document.getElementById('repCategory').value; const sel = document.getElementById('repType'); sel.innerHTML = ''; if(reportConfig[cat]) reportConfig[cat].forEach(t => sel.innerHTML += `<option>${t}</option>`); }
-        async function submitReport() { alert("Report Submitted"); }
-        async function createTicket() { alert("Ticket Created"); }
-        async function addClientDirect() { alert("Use Command Center"); }
-        
-        function showTab(id) { 
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab')); 
-            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active')); 
-            document.getElementById('tab-'+id).classList.add('active-tab'); 
-            event.currentTarget.classList.add('active');
-            
-            // Specific Loaders
-            if(id === 'cmd-users') loadCommandUsers();
-            if(id === 'cmd-ops') loadCommandOps();
-            if(id === 'cmd-clients') loadCommandClients();
-            if(id === 'cmd-overwatch') loadOverwatch();
-            if(id === 'team') loadOrgChart();
-            if(id === 'timesheet') loadTimesheetData();
-            if(id === 'tasks') loadTasks();
-        }
-
-        // --- MISSING LOADERS (ADDED IN V35) ---
-        async function loadOrgChart() { 
-            const { data } = await sb.from('profiles').select('full_name, rank, current_status'); 
-            const container = document.getElementById('orgChartContainer');
-            if(!container) return;
-            if(data && data.length > 0) {
-                container.innerHTML = '';
-                const rankOrder = { 'Chief':1, 'Deputy Chief':2, 'Commander':3, 'Captain':4, 'Lieutenant':5, 'Sergeant':6, 'Corporal':7, 'Officer':8, 'Recruit':9, 'Unassigned':10 };
-                data.sort((a,b) => (rankOrder[a.rank] || 10) - (rankOrder[b.rank] || 10));
-                data.forEach(p => {
-                    let dotColor = p.current_status === 'Active' ? 'dot-green' : (p.current_status === 'Idle' ? 'dot-orange' : 'dot-gray');
-                    container.innerHTML += `<div class="org-node"><span class="status-dot ${dotColor}"></span><div class="org-rank">${p.rank || 'OFFICER'}</div><div class="org-name">${p.full_name}</div><div class="org-status">${p.current_status || 'Off Duty'}</div></div>`;
-                });
-            } else { container.innerHTML = "No team members found."; }
-        }
-
-        async function loadTimesheetData() {
-            // Simplified logic for immediate display
-            const div = document.getElementById('tsTableBody');
-            if(div) div.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No shifts recorded this week.</td></tr>';
-            safeText('tsTotalHours', '0.0');
-            safeText('tsStatus', 'Open');
-        }
-
-        async function loadTasks() {
-            const { data } = await sb.from('tickets').select('*').order('created_at', {ascending:false});
-            const tbody = document.getElementById('taskListBody');
-            if(!tbody) return;
-            if(data && data.length > 0) {
-                tbody.innerHTML = data.map(t => `<tr><td>${t.status}</td><td>${t.type}</td><td>${t.location}</td><td>${t.description}</td></tr>`).join('');
-            } else { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No active tasks.</td></tr>'; }
-        }
-        
-        function clearChatter() { if(!confirm("Clear chat view?")) return; document.getElementById('chatArea').innerHTML = ''; }
-        async function exportRadioLogs() { const { data } = await sb.from('radio_logs').select('*').order('created_at', { ascending: false }).limit(100); const json = JSON.stringify(data, null, 2); const blob = new Blob([json], {type: "application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = "radio_logs.json"; a.click(); }
-        
-        function setupSocketListeners() {
-            socket.on('radio-playback', d => {
-                const area = document.getElementById('chatArea');
-                if(area) {
-                    const dDiv = document.createElement('div');
-                    dDiv.innerHTML = `<b>${d.name}</b> (Audio)`;
-                    area.appendChild(dDiv);
-                }
-            });
-            socket.on('radio-text-broadcast', d => {
-                const area = document.getElementById('chatArea');
-                if(area) {
-                    const dDiv = document.createElement('div');
-                    dDiv.innerHTML = `<b>${d.name}</b>: ${d.msg}`;
-                    area.appendChild(dDiv);
-                }
-            });
-        }
-        
-        function changeChannel(ch) {
-            currentChannel = ch;
-            socket.emit('join-channel', ch);
-            safeText('lcdChannel', ch);
-        }
-
-        function sendText() {
-            const input = document.getElementById('textInput');
-            if(input && input.value) {
-                socket.emit('radio-text', {name: currentUser.full_name, msg: input.value, channel: currentChannel});
-                input.value = '';
-            }
-        }
-    </script>
-    
-    <style>
-        :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f59e0b; --radio-color: #ff4500; }
-        * { box-sizing: border-box; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-        
-        .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; z-index: 50; }
-        .main-content { flex: 1; display: flex; flex-direction: column; position: relative; }
-        
-        .top-deck { height: 60%; display: flex; border-bottom: 2px solid #334155; }
-        .bottom-deck { flex: 1; display: flex; overflow: hidden; }
-        #map { flex: 1; z-index: 1; }
-        
-        /* COMMAND STYLES */
-        .nav-header { padding: 10px 15px; font-size: 0.8rem; font-weight: bold; color: var(--accent); background: rgba(59, 130, 246, 0.1); margin-top: 10px; }
-        .nav-btn { background: transparent; border: none; color: #94a3b8; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; display: flex; gap: 10px; font-size: 0.9rem; }
-        .nav-btn:hover, .nav-btn.active { background: #334155; color: white; border-left: 4px solid var(--accent); }
-        
-        .tab-content { display: none; padding: 20px; height: 100%; overflow-y: auto; }
-        .tab-content.active-tab { display: block; }
-        
-        .card { background: var(--panel); padding: 20px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 15px; }
-        .form-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 5px; margin-bottom: 10px; }
-        .btn { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
-        .btn-blue { background: var(--accent); } .btn-green { background: var(--green); } .btn-red { background: var(--red); } .btn-orange { background: var(--orange); color: black; }
-        
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-        .auth-card { background: var(--panel); padding: 30px; width: 90%; max-width: 400px; text-align: center; border-radius: 10px; border: 1px solid #334155; }
-        
-        .radio-silo { width: 360px; background: #0b1120; border-left: 2px solid #334155; display: flex; flex-direction: column; padding: 10px; }
-        .radio-casing { background: #222; border-radius: 15px; padding: 15px; border: 2px solid #444; height: 100%; display: flex; flex-direction: column; }
-        .radio-screen { background: rgba(20,0,0,0.9); color: var(--radio-color); padding: 10px; border-radius: 4px; flex: 1; border: 1px solid #555; }
-        
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .stat-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; text-align: center; }
-        .stat-val { font-size: 1.2rem; font-weight: bold; }
-        .ts-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .ts-table th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 8px; }
-        .ts-table td { padding: 8px; border-bottom: 1px solid #334155; }
-        
-        .job-card { border-left: 4px solid var(--accent); background: rgba(255,255,255,0.03); padding: 15px; margin-bottom: 15px; border-radius: 4px; cursor: pointer; }
-        .job-card:hover { background: rgba(255,255,255,0.05); }
-        .org-node { background: #1e293b; padding: 10px; margin-bottom: 10px; border-left: 3px solid var(--accent); border-radius: 4px; display: flex; align-items: center; gap: 10px; }
-    </style>
-</head>
-<body>
-
-    <div class="modal-overlay" id="authModal">
-        <div class="auth-card" id="loginForm">
-            <h2 style="color:var(--accent);">TOC LOGIN</h2>
-            <form onsubmit="event.preventDefault(); handleLogin();">
-                <input type="email" id="email" placeholder="Email" class="form-input" autocomplete="email">
-                <input type="password" id="password" placeholder="Password" class="form-input" autocomplete="current-password">
-                <button type="submit" id="btnLoginBtn" class="btn btn-blue" style="width:100%;">AUTHENTICATE</button>
-            </form>
-            <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('signup')">Recruit? Apply Here</p>
-        </div>
-        <div class="auth-card" id="signupForm" style="display:none;">
-            <h2 style="color:var(--green);">APPLICATION</h2>
-            <form onsubmit="event.preventDefault(); handleSignup();">
-                <input type="text" id="regName" placeholder="Full Name" class="form-input">
-                <input type="email" id="regEmail" placeholder="Email" class="form-input">
-                <input type="password" id="regPass" placeholder="Password" class="form-input" autocomplete="new-password">
-                <button type="submit" class="btn btn-green" style="width:100%;">SUBMIT</button>
-            </form>
-            <p style="font-size:0.8rem; color:#94a3b8; margin-top:15px; cursor:pointer;" onclick="toggleAuth('login')">Back to Login</p>
-        </div>
-    </div>
-
-    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ MENU</button>
-
-    <div class="sidebar">
-        <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
-            <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v35.0 TABS FIXED</div>
-        </div>
-        
-        <div id="commandCenterNav" style="display:none;">
-            <div class="nav-header">COMMAND CENTER</div>
-            <button class="nav-btn" onclick="showTab('cmd-users')">👥 Users & Roles</button>
-            <button class="nav-btn" onclick="showTab('cmd-ops')">⚔️ Operations</button>
-            <button class="nav-btn" onclick="showTab('cmd-clients')">🏢 Clients</button>
-            <button class="nav-btn" onclick="showTab('cmd-overwatch')">👁️ TOC Overwatch</button>
-        </div>
-
-        <div class="nav-header">MY STATION</div>
-        <button class="nav-btn active" onclick="showTab('dashboard')"><span>📊</span> Dashboard</button>
-        <button class="nav-btn" onclick="showTab('profile')"><span>🪪</span> Personnel File</button>
-        <button class="nav-btn" onclick="showTab('team')"><span>👥</span> My Team</button>
-        <button class="nav-btn" onclick="showTab('setup')"><span>🎨</span> Personal Setup</button>
-        <button class="nav-btn" onclick="showTab('timesheet')"><span>⏱️</span> Timesheet</button>
-        
-        <div class="nav-header">FIELD OPS</div>
-        <button class="nav-btn" onclick="showTab('schedule')"><span>📅</span> Schedule</button>
-        <button class="nav-btn" onclick="showTab('tasks')"><span>🚨</span> Tasks</button>
-        <button class="nav-btn" onclick="showTab('reports')"><span>📝</span> Reports</button>
-        <button class="nav-btn" onclick="showTab('training')"><span>🎓</span> Academy</button>
-
-        <div style="margin-top:auto; padding:15px; border-top:1px solid #334155;">
-            <button class="btn btn-red" style="width:100%; font-size:0.8rem;" onclick="doLogout()">LOGOUT</button>
-        </div>
-    </div>
-
-    <div class="main-content">
-        <div class="top-deck">
-            <div id="map"></div>
-            <div class="radio-silo">
-                <div class="radio-casing">
-                    <div class="radio-screen">
-                        <div style="border-bottom:1px dashed #555; padding-bottom:5px; margin-bottom:5px; display:flex; justify-content:space-between;">
-                            <span style="font-weight:bold;" id="lcdChannel">MAIN</span><span id="lcdStatus">STANDBY</span>
-                        </div>
-                        <div id="chatArea" style="flex:1; overflow-y:auto; font-size:0.8rem;"></div>
-                    </div>
-                    <div style="margin-top:10px; display:grid; grid-template-columns:repeat(4,1fr); gap:5px;">
-                        <button class="btn btn-blue" onclick="volUp()">V+</button>
-                        <button class="btn btn-blue" onclick="volDown()">V-</button>
-                        <button class="btn btn-red" id="btnMute" onclick="toggleMute()">MUTE</button>
-                        <button class="btn btn-orange" onmousedown="alert('PTT')" >PTT</button>
-                    </div>
-                    <div id="cmdRadioTools" style="display:none; margin-top:10px;">
-                        <button class="btn btn-red" style="width:100%; font-size:0.7rem;" onclick="document.getElementById('chatArea').innerHTML=''">CLEAR CHATTER</button>
-                    </div>
-                     <div style="display:flex; gap:5px; margin-top:10px;">
-                        <input type="text" id="textInput" style="background:#000; color:var(--radio-color); border:1px solid #444; padding:5px; flex:1; font-family:'Courier New';" placeholder="TXT...">
-                        <button onclick="sendText()" style="background:#444; color:#fff; border:none; padding:0 10px; cursor:pointer;">SEND</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bottom-deck">
-            <div class="workspace">
-                
-                <div id="tab-dashboard" class="tab-content active-tab">
-                    <h2>Mission Dashboard</h2>
-                    <div class="card">
-                        <div style="display:flex; justify-content:space-between;">
-                            <h3 id="shiftStatus">Status: <span style="color:gray">OFFLINE</span></h3>
-                            <div id="gpsIndicator" style="color:red; font-size:0.8rem;">GPS: SEARCHING</div>
-                        </div>
-                        <p id="dashName">Officer: Loading...</p>
-                        <p id="dashRole">Role: Loading...</p>
-                        <div class="grid-2" style="margin-top:10px;">
-                            <button id="btnIdle" class="btn btn-orange" style="display:none;" onclick="toggleIdle()">PAUSE (Go Idle)</button>
-                            <button id="btnClock" class="btn btn-green" onclick="toggleShift()">START SHIFT</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="tab-cmd-users" class="tab-content">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h2>User Management</h2>
-                        <button class="btn btn-green" onclick="createNewUser()">+ Add Personnel</button>
-                    </div>
-                    <div class="card" id="cmdUserList">Loading Users...</div>
-                </div>
-
-                <div id="tab-cmd-ops" class="tab-content">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h2>Operations Board</h2>
-                        <button class="btn btn-blue" onclick="createOperation()">+ New Op</button>
-                    </div>
-                    <div class="grid-2">
-                        <div id="cmdOpsList">Loading Ops...</div>
-                        <div id="cmdOpsDetails" class="card" style="display:none; border-left:4px solid var(--accent);">Select an Op...</div>
-                    </div>
-                </div>
-
-                <div id="tab-cmd-clients" class="tab-content">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h2>Client Database</h2>
-                        <button class="btn btn-blue" onclick="addClient()">+ New Client</button>
-                    </div>
-                    <div id="cmdClientList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px,1fr)); gap:10px; margin-top:15px;">Loading Clients...</div>
-                </div>
-
-                <div id="tab-cmd-overwatch" class="tab-content">
-                    <h2>TOC Overwatch</h2>
-                    <div class="grid-2">
-                        <div class="stat-box"><div class="stat-val" id="owOpen">0</div><div class="stat-lbl">OPEN TICKETS</div></div>
-                        <div class="stat-box"><div class="stat-val" id="owClosed">0</div><div class="stat-lbl">CLOSED TODAY</div></div>
-                    </div>
-                    <div class="card" style="margin-top:15px;">
-                        <h3>Live Feed</h3>
-                        <div id="owFeed" style="max-height:200px; overflow-y:auto;">Loading feed...</div>
-                    </div>
-                </div>
-
-                <div id="tab-profile" class="tab-content">
-                    <h2>Personnel File</h2>
-                    <div class="card">
-                        <div class="grid-2">
-                            <div><label>Full Name</label><input type="text" id="profName" class="form-input"></div>
-                            <div><label>Rank (Command)</label><input type="text" id="profRank" class="form-input" disabled></div>
-                            <div><label>Sec Lic # (Command)</label><input type="text" id="profSecLicNum" class="form-input" disabled></div>
-                        </div>
-                        <div style="color:red; font-size:0.8rem; margin-top:10px; display:none;" id="profLockMsg">Restricted Fields Locked</div>
-                    </div>
-                </div>
-
-                <div id="tab-schedule" class="tab-content"><h2>Schedule</h2><div class="card" id="myScheduleList">No shifts</div></div>
-                <div id="tab-tasks" class="tab-content"><h2>Tasks</h2><div class="card"><table class="ts-table"><tbody id="taskListBody"></tbody></table></div></div>
-                <div id="tab-reports" class="tab-content"><h2>Reports</h2><div class="card"><div class="grid-2"><select id="repCategory" class="form-input"><option>TOC</option></select><select id="repType" class="form-input"><option>General</option></select></div><textarea class="form-input" rows="4"></textarea><button class="btn btn-blue">Submit</button></div></div>
-                <div id="tab-team" class="tab-content"><h2>My Team</h2><div class="card" id="orgChartContainer">Loading...</div></div>
-                <div id="tab-setup" class="tab-content"><h2>Setup</h2><div class="card">Settings...</div></div>
-                <div id="tab-timesheet" class="tab-content"><h2>Timesheet</h2><div class="card" id="tsTableBody">Loading...</div></div>
-                <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="card">Apps...</div></div>
-                <div id="tab-training" class="tab-content"><h2>Academy</h2><div class="card">Courses...</div></div>
-
-            </div>
-        </div>
-    </div>
-</body>
-</html>
+                            <td>${u.
