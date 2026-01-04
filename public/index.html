@@ -30,7 +30,7 @@
         let pathCoords = []; 
         let reportConfig = null;
         let isMuted = false;
-        let map = null; 
+        let map = null; // Map is initially null
 
         // --- INIT ---
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
@@ -82,17 +82,18 @@
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
-        // --- COMMAND CENTER LOGIC (RESTORED) ---
+        // --- COMMAND CENTER LOGIC ---
         
-        // 1. USERS TAB
         async function loadCommandUsers() {
+            // Real Database Query
             const { data } = await sb.from('profiles').select('*').order('rank');
             const div = document.getElementById('cmdUserList');
             if(!div) return;
-            div.innerHTML = '<table class="ts-table"><tr><th>Name</th><th>Rank</th><th>Role</th><th>Status</th><th>Actions</th></tr>';
-            if(data) {
+            
+            let html = '<table class="ts-table"><tr><th>Name</th><th>Rank</th><th>Role</th><th>Status</th><th>Actions</th></tr>';
+            if(data && data.length > 0) {
                 data.forEach(u => {
-                    div.innerHTML += `
+                    html += `
                         <tr>
                             <td>${u.full_name}</td>
                             <td>${u.rank || '-'}</td>
@@ -101,8 +102,8 @@
                             <td><button class="btn btn-blue" style="font-size:0.6rem; padding:2px 5px;" onclick="editUser('${u.id}')">EDIT</button></td>
                         </tr>`;
                 });
-                div.innerHTML += '</table>';
-            } else { div.innerHTML = "No users found."; }
+            } else { html += '<tr><td colspan="5" style="text-align:center;">No users found.</td></tr>'; }
+            div.innerHTML = html + '</table>';
         }
 
         function editUser(id) {
@@ -114,8 +115,8 @@
 
         async function createNewUser() { alert("Use the 'Setup' tab to create users, or use the public signup link for recruits."); }
 
-        // 2. OPS TAB
         async function loadCommandOps() {
+            // Real Database Query
             const { data: ops } = await sb.from('operations').select('*'); 
             const div = document.getElementById('cmdOpsList');
             if(!div) return;
@@ -148,7 +149,6 @@
             div.style.display = 'block';
         }
 
-        // 3. CLIENTS TAB
         async function loadCommandClients() {
             const { data } = await sb.from('clients').select('*');
             const div = document.getElementById('cmdClientList');
@@ -166,7 +166,6 @@
             if(name) { await sb.from('clients').insert([{ name: name }]); loadCommandClients(); }
         }
 
-        // 4. OVERWATCH TAB
         async function loadOverwatch() {
             const { count: open } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Open');
             const { count: closed } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Closed');
@@ -199,11 +198,11 @@
                     else { isClockedIn = false; isIdle = false; }
                     updateAccessLevel();
 
-                    // DASH POPULATION (With Safety)
+                    // DASH POPULATION
                     safeText('dashName', "Officer: " + (profile.full_name || "Unknown"));
                     safeText('dashRole', "Role: " + (profile.role || "Unassigned"));
 
-                    // STATS (With Safety)
+                    // STATS
                     const totalAssign = (profile.stats_accepted || 0) + (profile.stats_refused || 0);
                     const refusalRatio = totalAssign > 0 ? ((profile.stats_refused / totalAssign) * 100).toFixed(1) + "%" : "0%";
                     safeText('stRefuse', refusalRatio);
@@ -238,10 +237,16 @@
                         profInputs.forEach(el => el.disabled = false);
                     }
                     
-                    // INIT SYSTEMS
+                    // INIT SYSTEMS (MAP & SOCKET)
                     if(socket) {
                         socket.emit('join-channel', 'MAIN');
                         if(navigator.geolocation) {
                             navigator.geolocation.watchPosition(
                                 pos => {
-                                    const lat = pos.coords.latitude
+                                    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+                                    socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
+                                    
+                                    // Map Init - MOVED HERE TO PREVENT BLANK PAGE CRASH
+                                    if(!map && document.getElementById('map')) {
+                                        map = L.map('map').setView([lat, lng], 14);
+                                        L.tileLayer('https://server
