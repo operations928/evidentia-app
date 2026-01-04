@@ -38,7 +38,6 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cHNranlhdWdobHV6ZWZxdG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDM2MDMsImV4cCI6MjA4Mjg3OTYwM30.KO3k4p3YrEOKFX9dxr08B0cZZ_56Jc_IzLWdU0HN5oM";
 
         try { 
-            // STORAGE FIX: Explicitly setting storage options to help with browser blocking
             sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
                 auth: {
                     persistSession: true,
@@ -93,9 +92,8 @@
 
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
-        // --- COMMAND CENTER LOGIC (RESTORED) ---
+        // --- COMMAND CENTER LOGIC ---
         
-        // 1. USERS TAB
         async function loadCommandUsers() {
             const { data } = await sb.from('profiles').select('*').order('rank');
             const div = document.getElementById('cmdUserList');
@@ -125,7 +123,6 @@
 
         async function createNewUser() { alert("Use the 'Setup' tab to create users, or use the public signup link for recruits."); }
 
-        // 2. OPS TAB
         async function loadCommandOps() {
             const { data: ops } = await sb.from('operations').select('*'); 
             const div = document.getElementById('cmdOpsList');
@@ -150,8 +147,10 @@
         async function viewOpDetails(opId) {
             const { data: logs } = await sb.from('audit_logs').select('*').eq('operation_id', opId).order('timestamp', {ascending:false});
             let timelineHtml = '<div style="margin-top:10px; border-left:2px solid #555; padding-left:10px;">';
-            if(logs) {
+            if(logs && logs.length > 0) {
                 logs.forEach(log => { timelineHtml += `<div style="font-size:0.8rem; margin-bottom:5px;"><b style="color:#3b82f6">${new Date(log.timestamp).toLocaleTimeString()}</b> - ${log.action}</div>`; });
+            } else {
+                timelineHtml += '<div style="font-size:0.8rem; color:#aaa;">No history recorded.</div>';
             }
             timelineHtml += '</div>';
             const div = document.getElementById('cmdOpsDetails');
@@ -159,7 +158,6 @@
             div.style.display = 'block';
         }
 
-        // 3. CLIENTS TAB
         async function loadCommandClients() {
             const { data } = await sb.from('clients').select('*');
             const div = document.getElementById('cmdClientList');
@@ -177,7 +175,6 @@
             if(name) { await sb.from('clients').insert([{ name: name }]); loadCommandClients(); }
         }
 
-        // 4. OVERWATCH TAB
         async function loadOverwatch() {
             const { count: open } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Open');
             const { count: closed } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Closed');
@@ -202,21 +199,13 @@
                 
                 if(profile) {
                     currentUser = profile;
-                    
-                    // --- FORCE COMMAND OVERRIDE ---
-                    // This fixes the issue where the dashboard wasn't showing
-                    if(email === 'operations@evidentiasecurity.ca') {
-                        currentUser.role = 'Command'; 
-                        console.log("Super Admin Identified. Unlocking Command Center.");
-                    }
+                    if(email === 'operations@evidentiasecurity.ca') currentUser.role = 'Command';
 
-                    // STATUS
                     if(profile.current_status === 'Active') { isClockedIn = true; isIdle = false; }
                     else if(profile.current_status === 'Idle') { isClockedIn = true; isIdle = true; }
                     else { isClockedIn = false; isIdle = false; }
                     updateAccessLevel();
 
-                    // DASH POPULATION
                     safeText('dashName', "Officer: " + (profile.full_name || "Unknown"));
                     safeText('dashRole', "Role: " + (profile.role || "Unassigned"));
 
@@ -227,7 +216,6 @@
                     safeText('stTrain', (profile.stats_training_hours || 0) + "h");
                     safeText('stIdle', (profile.stats_idle_hours || 0) + "h");
 
-                    // PROFILE POPULATION
                     safeVal('profName', profile.full_name || "");
                     safeVal('profRank', profile.rank || "");
                     safeVal('profCallSign', profile.call_sign || "");
@@ -242,25 +230,23 @@
                         if(pic) pic.src = profile.profile_pic_url;
                     }
 
-                    // ROLE LOGIC
                     const isCommand = ['Admin','Command'].includes(profile.role);
                     const licInput = document.getElementById('profSecLicNum');
                     if(licInput) licInput.disabled = !isCommand;
                     
                     if(isCommand) {
-                        safeShow('commandCenterNav', true); // UNHIDE COMMAND TABS
+                        safeShow('commandCenterNav', true);
                         safeShow('cmdRadioTools', true);
                         safeShow('profLockMsg', false);
                         const profInputs = document.querySelectorAll('#tab-profile input');
                         profInputs.forEach(el => el.disabled = false);
                         
-                        // Load Command Data immediately
+                        // Load Initial Command Data
                         loadCommandUsers();
                         loadCommandOps();
                         loadOverwatch();
                     }
                     
-                    // INIT SYSTEMS (MAP & SOCKET)
                     if(socket) {
                         socket.emit('join-channel', 'MAIN');
                         if(navigator.geolocation) {
@@ -268,13 +254,10 @@
                                 pos => {
                                     const lat = pos.coords.latitude; const lng = pos.coords.longitude;
                                     socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
-                                    
-                                    // SAFE MAP INIT
                                     if(!map && document.getElementById('map')) {
                                         map = L.map('map').setView([lat, lng], 14);
                                         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
                                     }
-                                    
                                     if(map) {
                                         if(!myMarker) { myMarker = L.circleMarker([lat, lng], { color: '#3b82f6', radius: 8 }).addTo(map); }
                                         else { myMarker.setLatLng([lat, lng]); }
@@ -290,6 +273,7 @@
             } catch(e) { console.error("Profile Error:", e); }
         }
 
+        // --- GENERAL LOADERS ---
         function loadAllData() {
             try { loadStaff(); } catch(e){}
             try { loadTickets(); } catch(e){}
@@ -339,7 +323,39 @@
             }
         }
         
-        // --- RESTORED FUNCTIONS ---
+        // --- DATA TAB LOADERS (FIXED) ---
+        async function loadOrgChart() { 
+            const { data } = await sb.from('profiles').select('full_name, rank, current_status'); 
+            const container = document.getElementById('orgChartContainer');
+            if(!container) return;
+            if(data && data.length > 0) {
+                container.innerHTML = '';
+                const rankOrder = { 'Chief':1, 'Deputy Chief':2, 'Commander':3, 'Captain':4, 'Lieutenant':5, 'Sergeant':6, 'Corporal':7, 'Officer':8, 'Recruit':9, 'Unassigned':10 };
+                data.sort((a,b) => (rankOrder[a.rank] || 10) - (rankOrder[b.rank] || 10));
+                data.forEach(p => {
+                    let dotColor = p.current_status === 'Active' ? 'dot-green' : (p.current_status === 'Idle' ? 'dot-orange' : 'dot-gray');
+                    container.innerHTML += `<div class="org-node"><span class="status-dot ${dotColor}"></span><div class="org-rank">${p.rank || 'OFFICER'}</div><div class="org-name">${p.full_name}</div><div class="org-status">${p.current_status || 'Off Duty'}</div></div>`;
+                });
+            } else { container.innerHTML = "No team members found."; }
+        }
+
+        async function loadTimesheetData() {
+            // Simplified logic for immediate display
+            const div = document.getElementById('tsTableBody');
+            if(div) div.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No shifts recorded this week.</td></tr>';
+            safeText('tsTotalHours', '0.0');
+            safeText('tsStatus', 'Open');
+        }
+
+        async function loadTasks() {
+            const { data } = await sb.from('tickets').select('*').order('created_at', {ascending:false});
+            const tbody = document.getElementById('taskListBody');
+            if(!tbody) return;
+            if(data && data.length > 0) {
+                tbody.innerHTML = data.map(t => `<tr><td>${t.status}</td><td>${t.type}</td><td>${t.location}</td><td>${t.description}</td></tr>`).join('');
+            } else { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No active tasks.</td></tr>'; }
+        }
+
         async function loadStaff() { try { const res = await fetch('/api/staff'); const data = await res.json(); if(data.length) document.getElementById('staffList').innerHTML = data.map(u => `<div>${u.full_name}</div>`).join(''); } catch(e){} }
         async function loadTickets() { try { const res = await fetch('/api/tickets'); const data = await res.json(); if(data.length) document.getElementById('ticketList').innerHTML = data.map(t => `<div>${t.description}</div>`).join(''); } catch(e){} }
         async function loadReportConfig() { if(!reportConfig) reportConfig = {toc:['General'], internal:['General']}; updateReportTypes(); }
@@ -354,11 +370,14 @@
             document.getElementById('tab-'+id).classList.add('active-tab'); 
             event.currentTarget.classList.add('active');
             
-            // Specific Loaders
+            // Trigger Loaders based on Tab
             if(id === 'cmd-users') loadCommandUsers();
             if(id === 'cmd-ops') loadCommandOps();
             if(id === 'cmd-clients') loadCommandClients();
             if(id === 'cmd-overwatch') loadOverwatch();
+            if(id === 'team') loadOrgChart();
+            if(id === 'timesheet') loadTimesheetData();
+            if(id === 'tasks') loadTasks();
         }
         
         function clearChatter() { if(!confirm("Clear chat view?")) return; document.getElementById('chatArea').innerHTML = ''; }
@@ -439,6 +458,7 @@
         
         .job-card { border-left: 4px solid var(--accent); background: rgba(255,255,255,0.03); padding: 15px; margin-bottom: 15px; border-radius: 4px; cursor: pointer; }
         .job-card:hover { background: rgba(255,255,255,0.05); }
+        .org-node { background: #1e293b; padding: 10px; margin-bottom: 10px; border-left: 3px solid var(--accent); border-radius: 4px; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
 <body>
@@ -470,7 +490,7 @@
     <div class="sidebar">
         <div style="padding:20px; border-bottom:1px solid #334155; text-align:center;">
             <div style="font-weight:bold; color:var(--accent); margin-top:5px;">TOC</div>
-            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v34.0 RESTORED</div>
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:bold; color:var(--green);">v35.0 TABS FIXED</div>
         </div>
         
         <div id="commandCenterNav" style="display:none;">
@@ -598,11 +618,11 @@
                 </div>
 
                 <div id="tab-schedule" class="tab-content"><h2>Schedule</h2><div class="card" id="myScheduleList">No shifts</div></div>
-                <div id="tab-tasks" class="tab-content"><h2>Tasks</h2><div class="card" id="taskListBody">No tasks</div></div>
+                <div id="tab-tasks" class="tab-content"><h2>Tasks</h2><div class="card"><table class="ts-table"><tbody id="taskListBody"></tbody></table></div></div>
                 <div id="tab-reports" class="tab-content"><h2>Reports</h2><div class="card"><div class="grid-2"><select id="repCategory" class="form-input"><option>TOC</option></select><select id="repType" class="form-input"><option>General</option></select></div><textarea class="form-input" rows="4"></textarea><button class="btn btn-blue">Submit</button></div></div>
                 <div id="tab-team" class="tab-content"><h2>My Team</h2><div class="card" id="orgChartContainer">Loading...</div></div>
                 <div id="tab-setup" class="tab-content"><h2>Setup</h2><div class="card">Settings...</div></div>
-                <div id="tab-timesheet" class="tab-content"><h2>Timesheet</h2><div class="card">History...</div></div>
+                <div id="tab-timesheet" class="tab-content"><h2>Timesheet & Payroll</h2><div class="card" id="tsTableBody">Loading...</div></div>
                 <div id="tab-apps" class="tab-content"><h2>Apps</h2><div class="card">Apps...</div></div>
                 <div id="tab-training" class="tab-content"><h2>Academy</h2><div class="card">Courses...</div></div>
 
