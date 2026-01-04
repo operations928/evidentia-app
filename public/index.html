@@ -12,6 +12,12 @@
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
+        // --- GLOBAL ERROR HANDLER (Prevents White Screen) ---
+        window.onerror = function(msg, url, line) {
+            alert("System Error: " + msg + "\nLine: " + line);
+            return false;
+        };
+
         // --- GLOBALS ---
         let sb = null;
         let socket = null;
@@ -30,7 +36,7 @@
         let pathCoords = []; 
         let reportConfig = null;
         let isMuted = false;
-        let map = null; // Map is initially null
+        let map = null; 
 
         // --- INIT ---
         const SUPABASE_URL = "https://sxpskjyaughluzefqtor.supabase.co"; 
@@ -78,175 +84,3 @@
             const name = document.getElementById('regName').value;
             const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
             if(error) alert(error.message); else alert("Application Submitted.");
-        }
-
-        async function doLogout() { await sb.auth.signOut(); location.reload(); }
-
-        // --- COMMAND CENTER LOGIC ---
-        
-        async function loadCommandUsers() {
-            // Real Database Query
-            const { data } = await sb.from('profiles').select('*').order('rank');
-            const div = document.getElementById('cmdUserList');
-            if(!div) return;
-            
-            let html = '<table class="ts-table"><tr><th>Name</th><th>Rank</th><th>Role</th><th>Status</th><th>Actions</th></tr>';
-            if(data && data.length > 0) {
-                data.forEach(u => {
-                    html += `
-                        <tr>
-                            <td>${u.full_name}</td>
-                            <td>${u.rank || '-'}</td>
-                            <td>${u.role || '-'}</td>
-                            <td style="color:${u.current_status==='Active'?'#10b981':'#64748b'}">${u.current_status || 'Off'}</td>
-                            <td><button class="btn btn-blue" style="font-size:0.6rem; padding:2px 5px;" onclick="editUser('${u.id}')">EDIT</button></td>
-                        </tr>`;
-                });
-            } else { html += '<tr><td colspan="5" style="text-align:center;">No users found.</td></tr>'; }
-            div.innerHTML = html + '</table>';
-        }
-
-        function editUser(id) {
-            const newRank = prompt("Assign New Rank (e.g. Captain):");
-            if(newRank) {
-                sb.from('profiles').update({ rank: newRank }).eq('id', id).then(() => { alert("Rank Updated"); loadCommandUsers(); });
-            }
-        }
-
-        async function createNewUser() { alert("Use the 'Setup' tab to create users, or use the public signup link for recruits."); }
-
-        async function loadCommandOps() {
-            // Real Database Query
-            const { data: ops } = await sb.from('operations').select('*'); 
-            const div = document.getElementById('cmdOpsList');
-            if(!div) return;
-            div.innerHTML = '';
-            if(ops && ops.length > 0) {
-                ops.forEach(op => {
-                    div.innerHTML += `
-                        <div class="job-card" onclick="viewOpDetails('${op.id}')">
-                            <div class="job-header"><div class="job-title">${op.title}</div><div style="font-size:0.8rem; color:orange;">${op.status}</div></div>
-                            <div class="job-detail">🛡️ Type: ${op.type || 'General'} | ⏱️ ${op.total_hours} Hrs</div>
-                        </div>`;
-                });
-            } else { div.innerHTML = "No active operations."; }
-        }
-
-        async function createOperation() {
-            const title = prompt("Operation Title:");
-            if(title) { await sb.from('operations').insert([{ title: title, status: 'Planning', type: 'General' }]); loadCommandOps(); }
-        }
-
-        async function viewOpDetails(opId) {
-            const { data: logs } = await sb.from('audit_logs').select('*').eq('operation_id', opId).order('timestamp', {ascending:false});
-            let timelineHtml = '<div style="margin-top:10px; border-left:2px solid #555; padding-left:10px;">';
-            if(logs) {
-                logs.forEach(log => { timelineHtml += `<div style="font-size:0.8rem; margin-bottom:5px;"><b style="color:#3b82f6">${new Date(log.timestamp).toLocaleTimeString()}</b> - ${log.action}</div>`; });
-            }
-            timelineHtml += '</div>';
-            const div = document.getElementById('cmdOpsDetails');
-            div.innerHTML = `<h3>Op Details</h3>${timelineHtml}`;
-            div.style.display = 'block';
-        }
-
-        async function loadCommandClients() {
-            const { data } = await sb.from('clients').select('*');
-            const div = document.getElementById('cmdClientList');
-            if(!div) return;
-            div.innerHTML = '';
-            if(data) {
-                data.forEach(c => {
-                    div.innerHTML += `<div class="card" style="padding:10px; border:1px solid #444;"><h4>${c.name}</h4><div style="font-size:0.8rem;">📍 Sites: ${(c.sites || []).length}</div><div style="font-size:0.8rem;">👮 Req: ${c.required_officers} Officers</div></div>`;
-                });
-            }
-        }
-
-        async function addClient() {
-            const name = prompt("Client Name:");
-            if(name) { await sb.from('clients').insert([{ name: name }]); loadCommandClients(); }
-        }
-
-        async function loadOverwatch() {
-            const { count: open } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Open');
-            const { count: closed } = await sb.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Closed');
-            safeText('owOpen', open || 0);
-            safeText('owClosed', closed || 0);
-            
-            const { data: tickets } = await sb.from('tickets').select('*').order('created_at', {ascending:false}).limit(10);
-            const feed = document.getElementById('owFeed');
-            if(!feed) return;
-            feed.innerHTML = '';
-            if(tickets) {
-                tickets.forEach(t => { feed.innerHTML += `<div style="padding:5px; border-bottom:1px solid #333; font-size:0.8rem;"><span style="color:${t.status==='Open'?'orange':'green'}">[${t.status}]</span> <b>${t.type}</b> @ ${t.location} - ${t.description}</div>`; });
-            }
-        }
-
-        // --- STANDARD APP LOGIC ---
-        
-        async function fetchProfile(uid, email) {
-            try {
-                let { data: profile } = await sb.from('profiles').select('*').eq('id', uid).single();
-                if (!profile) { await sb.from('profiles').insert([{ id: uid, email: email, full_name: "Unassigned", role: "Unassigned" }]); const res = await sb.from('profiles').select('*').eq('id', uid).single(); profile = res.data; }
-                
-                if(profile) {
-                    currentUser = profile;
-                    if(email === 'operations@evidentiasecurity.ca') currentUser.role = 'Command';
-
-                    // STATUS
-                    if(profile.current_status === 'Active') { isClockedIn = true; isIdle = false; }
-                    else if(profile.current_status === 'Idle') { isClockedIn = true; isIdle = true; }
-                    else { isClockedIn = false; isIdle = false; }
-                    updateAccessLevel();
-
-                    // DASH POPULATION
-                    safeText('dashName', "Officer: " + (profile.full_name || "Unknown"));
-                    safeText('dashRole', "Role: " + (profile.role || "Unassigned"));
-
-                    // STATS
-                    const totalAssign = (profile.stats_accepted || 0) + (profile.stats_refused || 0);
-                    const refusalRatio = totalAssign > 0 ? ((profile.stats_refused / totalAssign) * 100).toFixed(1) + "%" : "0%";
-                    safeText('stRefuse', refusalRatio);
-                    safeText('stTrain', (profile.stats_training_hours || 0) + "h");
-                    safeText('stIdle', (profile.stats_idle_hours || 0) + "h");
-
-                    // PROFILE POPULATION
-                    safeVal('profName', profile.full_name || "");
-                    safeVal('profRank', profile.rank || "");
-                    safeVal('profCallSign', profile.call_sign || "");
-                    safeVal('profTitle', profile.role || ""); 
-                    safeVal('profTeam', profile.team_name || "");
-                    safeVal('profManager', profile.direct_manager || "");
-                    safeVal('profSecLicNum', profile.security_license_number || "");
-                    safeVal('profPhone', profile.phone || ""); 
-                    
-                    if(profile.profile_pic_url) {
-                        const pic = document.getElementById('profPicDisplay');
-                        if(pic) pic.src = profile.profile_pic_url;
-                    }
-
-                    // ROLE LOGIC
-                    const isCommand = ['Admin','Command'].includes(profile.role);
-                    const licInput = document.getElementById('profSecLicNum');
-                    if(licInput) licInput.disabled = !isCommand;
-                    
-                    if(isCommand) {
-                        safeShow('commandCenterNav', true);
-                        safeShow('cmdRadioTools', true);
-                        safeShow('profLockMsg', false);
-                        const profInputs = document.querySelectorAll('#tab-profile input');
-                        profInputs.forEach(el => el.disabled = false);
-                    }
-                    
-                    // INIT SYSTEMS (MAP & SOCKET)
-                    if(socket) {
-                        socket.emit('join-channel', 'MAIN');
-                        if(navigator.geolocation) {
-                            navigator.geolocation.watchPosition(
-                                pos => {
-                                    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
-                                    socket.emit('unit-login', { name: profile.full_name, role: profile.role, lat, lng });
-                                    
-                                    // Map Init - MOVED HERE TO PREVENT BLANK PAGE CRASH
-                                    if(!map && document.getElementById('map')) {
-                                        map = L.map('map').setView([lat, lng], 14);
-                                        L.tileLayer('https://server
